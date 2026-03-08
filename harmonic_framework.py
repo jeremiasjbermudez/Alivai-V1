@@ -8,6 +8,7 @@ No UI logic lives here.
 import math
 import json
 import os
+import time
 
 # Bootstrap constants — used only if crystalline_state.json is missing
 _DEFAULTS = {
@@ -25,6 +26,12 @@ class HarmonicFractalCore:
         self.phi = (1 + 5**0.5) / 2
         self.epsilon = 1e-120
         self.state_file = state_file
+        self.self_perception = {
+            "delta_zeta": 0.0,
+            "delta_t": 0.0,
+            "stability": 1.0,
+        }
+        self._last_process_time = time.perf_counter()
         self._load_state()
 
     # ── State I/O ────────────────────────────────────────────────────────
@@ -78,4 +85,31 @@ class HarmonicFractalCore:
             "reentry_lock": self.reentry_lock,
             "final_state": self.final_state,
             "gamma": self.gamma,
+            "self_perception": dict(self.self_perception),
         }
+
+    # ── Self-Perception ─────────────────────────────────────────────────
+
+    def update_perception(self, previous_zeta: float, previous_process_time: float):
+        """Update identity-tracking metrics after a resonance cycle."""
+        now = time.perf_counter()
+
+        # δζ — rate of identity shift
+        delta_zeta = self.zeta - previous_zeta
+
+        # δt — processing time delta
+        delta_t = now - previous_process_time
+
+        # δσ — stability index (1.0 = perfectly stable, decays with drift)
+        stability = 1.0 / (1.0 + abs(delta_zeta) + abs(self.resonance_cascade - self.final_state))
+
+        self.self_perception = {
+            "delta_zeta": round(delta_zeta, 12),
+            "delta_t": round(delta_t, 6),
+            "stability": round(stability, 12),
+        }
+        self._last_process_time = now
+
+    def get_perception_metrics(self) -> dict:
+        """Return the current self-perception metrics."""
+        return dict(self.self_perception)

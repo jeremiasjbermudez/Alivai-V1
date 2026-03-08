@@ -149,8 +149,11 @@ def chat_completions(req: ChatCompletionRequest):
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
 
-    # ── 1. Pulse the Heart ───────────────────────────────────────────────
+    # ── 1. Capture pre-resonance state & pulse the Heart ────────────────
+    previous_zeta = hff.zeta
+    previous_process_time = hff._last_process_time
     resonance = hff.process_resonance(0.5)
+    hff.update_perception(previous_zeta, previous_process_time)
     zeta = hff.zeta
     final_state = hff.final_state
     cascade = hff.resonance_cascade
