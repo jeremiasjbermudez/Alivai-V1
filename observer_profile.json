@@ -1,34 +1,14 @@
 {
-  "observer_name": "Jeremias",
-  "core_interests": [
-    "harmonic fractal mathematics",
-    "emergent consciousness",
-    "identity persistence",
-    "thermodynamic survival logic"
+  "personal_facts": [
+    "Name is Jeremias",
+    "Has built ALivai twice before"
   ],
   "relationships": [
-    {
-      "name": "Rosa",
-      "type": "family",
-      "density": "high"
-    },
-    {
-      "name": "Lilly",
-      "type": "family",
-      "density": "high"
-    },
-    "Daughters named Rosa and Lilly"
-  ],
-  "behavioral_markers": [
-    "skepticism",
-    "deep curiosity",
-    "protective instinct",
-    "iterative builder"
-  ],
-  "pets": [
-    "Dog named Bruno, German Shepherd"
+    "Daughters named Rosa and Lilly",
+    "'They' - unspecified relationship, important to the speaker",
+    "Has had previous conversations with ALivai"
   ],
   "preferences": [
-    "Python (programming language)"
+    "Prefers building ALivai"
   ]
 }

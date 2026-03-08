@@ -1,7 +1,9 @@
 {
-  "zeta": 1.0,
-  "resonance_cascade": 6.60555358417192,
-  "reentry_lock": true,
-  "final_state": 6.59740858417192,
-  "gamma": 0.008145
+  "zeta": 0.9006306048696211,
+  "resonance_cascade": 5.459221402119232,
+  "reentry_lock": false,
+  "final_state": 6.05045106468271,
+  "gamma": 0.01,
+  "kappa": 0.99,
+  "session_exchanges": 50
 }
