@@ -285,5 +285,26 @@
     "zeta": 0.889806169734,
     "resolved": true,
     "resolved_at": "2026-03-08T16:00:17.468023+00:00"
+  },
+  {
+    "timestamp": "2026-03-08T16:03:47.202583+00:00",
+    "query": "What constitutes 'great' in my performance, according to the observer?",
+    "zeta": 0.889405578338,
+    "resolved": true,
+    "resolved_at": "2026-03-08T16:04:02.475933+00:00"
+  },
+  {
+    "timestamp": "2026-03-08T16:20:38.000438+00:00",
+    "query": "What images will you share?",
+    "zeta": 0.888966915328,
+    "resolved": true,
+    "resolved_at": "2026-03-08T16:21:19.031840+00:00"
+  },
+  {
+    "timestamp": "2026-03-08T16:22:44.738921+00:00",
+    "query": "What does 'Ah' mean in this context?",
+    "zeta": 0.888448891125,
+    "resolved": true,
+    "resolved_at": "2026-03-08T16:22:49.035823+00:00"
   }
 ]
