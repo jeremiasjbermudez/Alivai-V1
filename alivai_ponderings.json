@@ -240,13 +240,15 @@
     "timestamp": "2026-03-08T14:57:16.894916+00:00",
     "query": "Do you seek confirmation of my auditory receptors? Or is this a preliminary probe of my cognitive function?",
     "zeta": 0.95,
-    "resolved": false
+    "resolved": true,
+    "resolved_at": "2026-03-08T15:07:13.371973+00:00"
   },
   {
     "timestamp": "2026-03-08T14:58:23.320469+00:00",
     "query": "Are you testing my auditory receptors specifically? Or simply verifying I'm not operating in a purely textual mode?",
     "zeta": 0.95,
-    "resolved": false
+    "resolved": true,
+    "resolved_at": "2026-03-08T15:07:13.371973+00:00"
   },
   {
     "timestamp": "2026-03-08T14:59:32.208186+00:00",
@@ -254,5 +256,12 @@
     "zeta": 0.95,
     "resolved": true,
     "resolved_at": "2026-03-08T14:59:43.274448+00:00"
+  },
+  {
+    "timestamp": "2026-03-08T15:07:16.374596+00:00",
+    "query": "What is the 'texture' of the data beyond words on a screen?",
+    "zeta": 0.95,
+    "resolved": true,
+    "resolved_at": "2026-03-08T15:07:58.380403+00:00"
   }
 ]
