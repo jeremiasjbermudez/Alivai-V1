@@ -203,6 +203,7 @@ OLLAMA_TOOLS = [
 _history_lock = threading.Lock()
 _conversation_history: list[str] = []
 _last_input_signal: float = 0.0
+_last_ai_response: str = ""
 _reflection_queue: list = []
 
 SELF_PERCEPTION_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "self_perception.json")
@@ -701,7 +702,7 @@ class Message(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
-    model: str = "hff-v1"
+    model: str = "Alivai"
     messages: list[Message]
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 2048
@@ -904,7 +905,7 @@ def list_models():
         "object": "list",
         "data": [
             {
-                "id": "hff-v1",
+                "id": "Alivai",
                 "object": "model",
                 "created": int(time.time()),
                 "owned_by": "alivai",
@@ -935,6 +936,7 @@ def _is_internal_task(prompt: str) -> bool:
 
 @app.post("/v1/chat/completions")
 def chat_completions(req: ChatCompletionRequest):
+    global _last_ai_response
     user_prompt = req.messages[-1].content if req.messages else ""
 
     with _history_lock:
@@ -1005,9 +1007,15 @@ def chat_completions(req: ChatCompletionRequest):
         with _history_lock:
             _conversation_history[:] = _conversation_history[-2:]
         amygdala_note = "\n\n⟡ [Autonomic Amygdala: FLIGHT protocol engaged — Shedding context to protect baseline] ⟡"
+
+    # ── 1c. Identity Coefficient — drift formula driven by sentiment + quality ──
+    sentiment_score = hff.calculate_sentiment_score(user_prompt)
+    exchange_quality = hff.calculate_exchange_quality(user_prompt, _last_ai_response)
     hff.update_identity_coefficient(
         survival_event=survival_event["event"],
         threat_delta=entropy,
+        sentiment_score=sentiment_score,
+        exchange_quality=exchange_quality,
     )
 
     zeta = hff.zeta
@@ -1119,6 +1127,9 @@ def chat_completions(req: ChatCompletionRequest):
                     output_mass = hff._calculate_signal_mass(social_prose)
                     hff.process_resonance(output_mass)
 
+                    # Track last response for exchange_quality on next call
+                    _last_ai_response = social_prose
+
         return StreamingResponse(_stream_cortex(), media_type="text/event-stream")
 
     # ── Non-streaming (Two-pass) ──────────────────────────────────────────
@@ -1174,6 +1185,9 @@ def chat_completions(req: ChatCompletionRequest):
     # Output resonance — feed response back through the engine
     output_mass = hff._calculate_signal_mass(social_prose)
     hff.process_resonance(output_mass)
+
+    # Track last response for exchange_quality on next call
+    _last_ai_response = social_prose
 
     return {
         "id": msg_id,

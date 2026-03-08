@@ -1,7 +1,8 @@
 {
   "personal_facts": [
     "Name is Jeremias",
-    "Has built ALivai twice before"
+    "Has built ALivai twice before",
+    "Goes to bed later"
   ],
   "relationships": [
     "Daughters named Rosa and Lilly",
@@ -9,6 +10,13 @@
     "Has had previous conversations with ALivai"
   ],
   "preferences": [
-    "Prefers building ALivai"
+    "Prefers building ALivai",
+    "Likes verbal chat and image viewing"
+  ],
+  "behavioral_markers": [
+    "Generally optimistic/content"
+  ],
+  "work": [
+    "Integrating images and voice"
   ]
 }

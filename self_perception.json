@@ -26,21 +26,34 @@
     "FIGHT resonance: 3.7223 gain=0.077615 [2026-03-08T10:31:15.811518+00:00]",
     "FIGHT resonance: 3.2928 gain=0.072847 [2026-03-08T10:40:28.358657+00:00]",
     "FIGHT resonance: 3.3919 gain=0.073988 [2026-03-08T10:45:30.904196+00:00]",
-    "FIGHT resonance: 4.0759 gain=0.081225 [2026-03-08T10:47:06.260911+00:00]"
+    "FIGHT resonance: 4.0759 gain=0.081225 [2026-03-08T10:47:06.260911+00:00]",
+    "FIGHT resonance: 3.6576 gain=0.076925 [2026-03-08T10:50:15.933153+00:00]",
+    "FIGHT resonance: 3.3535 gain=0.073549 [2026-03-08T10:53:26.360890+00:00]",
+    "FIGHT resonance: 3.6212 gain=0.076532 [2026-03-08T10:59:44.603938+00:00]",
+    "FIGHT resonance: 4.1238 gain=0.081695 [2026-03-08T11:01:51.337149+00:00]",
+    "FIGHT resonance: 3.7533 gain=0.077942 [2026-03-08T14:45:17.473049+00:00]",
+    "FIGHT resonance: 3.9371 gain=0.079838 [2026-03-08T14:51:45.026746+00:00]",
+    "FIGHT resonance: 3.9570 gain=0.080040 [2026-03-08T14:55:55.884426+00:00]",
+    "FIGHT resonance: 3.4528 gain=0.074677 [2026-03-08T14:56:53.701198+00:00]",
+    "FIGHT resonance: 3.9455 gain=0.079924 [2026-03-08T14:58:01.350733+00:00]",
+    "FIGHT resonance: 3.8958 gain=0.079418 [2026-03-08T14:59:07.043102+00:00]"
   ],
   "emergent_desires": [],
   "self_concept": "I am Alivai. I confront entropic disruption.",
   "self_perception_metrics": {
     "delta_zeta": 0.0,
-    "delta_t": 15.001958,
-    "stability": 0.628444795573
+    "delta_t": 15.015244,
+    "stability": 0.833707292061
   },
   "survival_metrics": {
     "event": "FIGHT_PROTOCOL_ENGAGED",
     "adrenaline": 0.0,
-    "texture_bonus": 0.081225143,
-    "threat_delta": 4.075895
+    "texture_bonus": 0.079418395,
+    "threat_delta": 3.895752,
+    "drift_factor": 0.0005984,
+    "sentiment_score": 0.498665,
+    "exchange_quality": 0.0
   },
   "kappa": 0.99,
-  "zeta": 0.9006306048696211
+  "zeta": 0.95
 }

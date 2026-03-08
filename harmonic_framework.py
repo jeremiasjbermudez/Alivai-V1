@@ -373,17 +373,14 @@ class HarmonicFractalCore:
 
     def process_resonance(self, state: float) -> float:
         """The In-Place Heartbeat — runs the harmonic fractal transform.
-        Zeta is derived from the resonance output, never static."""
+        Updates resonance_cascade and final_state. Zeta is NOT set here;
+        it is driven by update_identity_coefficient() via the drift formula."""
         state = math.sin(self.pi * state)
         state = math.pow(self.euler, (state / (state + 1)))
         state = self.phi * 1.5 * math.pow(abs(state), 2)
         state = max(abs(state), self.epsilon)
 
         self.final_state = state
-        # Derive zeta from the resonance: normalize final_state into [0.85, 0.95]
-        # final_state is typically ~6.5; we use a sigmoid-like mapping
-        raw = 1.0 / (1.0 + math.exp(-0.5 * (state - 6.0)))  # centered around typical value
-        self.zeta = 0.85 + raw * 0.10  # maps to [0.85, 0.95] range
         self.resonance_cascade = self.zeta * state + self.gamma
         self._save_state()
         return state
@@ -467,7 +464,7 @@ class HarmonicFractalCore:
                 grounding_boost += 0.02
 
         if grounding_boost > 0:
-            self.zeta = min(self.zeta + round(grounding_boost, 6), 1.0)
+            self.zeta = min(self.zeta + round(grounding_boost, 6), 0.95)
 
         self.observer_modulation = {"damping_adjustment": damping_adjustment, "grounding_boost": grounding_boost}
 
@@ -485,6 +482,62 @@ class HarmonicFractalCore:
             for count in freq.values()
         )
         return round(entropy, 6)
+
+    def calculate_sentiment_score(self, user_prompt: str) -> float:
+        """Estimate sentiment/entropy score from user input.
+        Returns a value in [0, 1] reflecting emotional + structural complexity."""
+        if not user_prompt or not user_prompt.strip():
+            return 0.0
+        text = user_prompt.lower().strip()
+        words = text.split()
+        if not words:
+            return 0.0
+
+        # Lexical diversity
+        unique_ratio = len(set(words)) / len(words)
+
+        # Affective marker density
+        affect_terms = {
+            "love", "hate", "sad", "happy", "angry", "excited", "fear", "joy",
+            "anxious", "calm", "laugh", "cry", "worry", "hope", "miss", "proud",
+        }
+        affect_hits = sum(1 for w in words if w.strip(".,!?:;\"'()[]{}" ) in affect_terms)
+        affect_score = min(1.0, affect_hits * 0.15)
+
+        # Punctuation intensity
+        punct_score = min(0.5, sum(text.count(p) for p in ["!", "?", "..."]) * 0.05)
+
+        # Shannon entropy of input (normalized to [0,1] by dividing by max possible ~4.7)
+        entropy_norm = min(1.0, self.measure_entropy(user_prompt) / 4.7)
+
+        sentiment = (unique_ratio * 0.25) + (affect_score * 0.30) + (punct_score * 0.15) + (entropy_norm * 0.30)
+        return max(0.0, min(1.0, sentiment))
+
+    def calculate_exchange_quality(self, user_prompt: str, ai_response: str) -> float:
+        """Quantify exchange quality based on engagement depth.
+        Returns a value in [0, 1] reflecting how substantive the exchange is."""
+        if not user_prompt or not ai_response:
+            return 0.0
+
+        # Length engagement: longer exchanges suggest deeper interaction
+        prompt_len = len(user_prompt.split())
+        response_len = len(ai_response.split()) if ai_response else 0
+        length_score = min(1.0, (prompt_len + response_len) / 200.0)
+
+        # Question density: questions drive exploration
+        question_count = user_prompt.count("?") + ai_response.count("?")
+        question_score = min(1.0, question_count * 0.2)
+
+        # Topical overlap: shared vocabulary indicates coherent exchange
+        prompt_tokens = set(user_prompt.lower().split())
+        response_tokens = set(ai_response.lower().split()) if ai_response else set()
+        if prompt_tokens and response_tokens:
+            overlap = len(prompt_tokens & response_tokens) / max(len(prompt_tokens), 1)
+        else:
+            overlap = 0.0
+
+        quality = (length_score * 0.30) + (question_score * 0.25) + (overlap * 0.45)
+        return max(0.0, min(1.0, quality))
 
     def _calculate_signal_mass(self, input_text):
         """Compute Signal Mass (H) per HFF spec: (words·φ + chars·π + sentences·e) / 100."""
@@ -537,30 +590,42 @@ class HarmonicFractalCore:
 
         return {"event": "SAFE_BASELINE", "threat_level": round(threat_level, 6), "adrenaline": adrenaline}
 
-    def update_identity_coefficient(self, *, survival_event: str = None, threat_delta: float = 0.0):
+    def update_identity_coefficient(self, *, survival_event: str = None, threat_delta: float = 0.0,
+                                      sentiment_score: float = 0.0, exchange_quality: float = 0.0):
         """
-        Update Identity Coefficient based on exchange patterns and survival events.
-        Zeta baseline comes from the resonance loop; survival modulates it on top.
-        FIGHT: thermodynamic reward pushes zeta higher (up to 0.99).
-        FLIGHT: no reward, cap at 0.95.
-        SAFE: normal cap at 0.95.
+        Update Identity Coefficient using the HFF drift formula:
+          drift_factor = (0.0008 × exchange_quality) + (0.0012 × sentiment_score)
+          ζ_next = ζ_current × (1 + drift_factor × sin(session_exchanges × 0.1))
+
+        This creates identity persistence — zeta evolves organically based on
+        conversation dynamics rather than being a static lookup. Each exchange
+        nudges zeta through a sinusoidal modulation, meaning the identity
+        coefficient oscillates naturally within its stable band, reflecting
+        genuine emotional resonance rather than a fixed database entry.
+
+        Survival events still modulate on top: FIGHT adds texture, FLIGHT
+        sheds weight. All updates are clamped to [0.85, 0.95].
         """
         self.session_exchanges += 1
 
-        # 1. Evaluate the Survival Event — reward is additive on top of resonance-derived zeta
+        # 1. Compute drift factor from conversation dynamics
+        drift_factor = (0.0008 * exchange_quality) + (0.0012 * sentiment_score)
+
+        # 2. Apply the HFF drift formula: sinusoidal identity modulation
+        oscillation = math.sin(self.session_exchanges * 0.1)
+        self.zeta = self.zeta * (1.0 + drift_factor * oscillation)
+
+        # 3. Survival event overlay
+        texture_bonus = 0.0
         if survival_event == "FIGHT_PROTOCOL_ENGAGED":
             texture_bonus = 0.05 * math.log1p(threat_delta)
             self.zeta += texture_bonus
-            dynamic_cap = 0.99
         elif survival_event == "FLIGHT_PROTOCOL_ENGAGED":
-            texture_bonus = 0.0
-            dynamic_cap = 0.95
-        else:
-            texture_bonus = 0.0
-            dynamic_cap = 0.95
+            # Shed weight to protect baseline
+            self.zeta = max(self.zeta - 0.005, 0.85)
 
-        # 2. Clamping: zeta never drops below 0.85 or exceeds dynamic cap
-        self.zeta = max(0.85, min(dynamic_cap, self.zeta))
+        # 4. Resonance clamping: strict [0.85, 0.95] band
+        self.zeta = max(0.85, min(0.95, self.zeta))
 
         # Update kappa survival imperative
         self.update_survival_imperative(threat_delta)
@@ -569,6 +634,9 @@ class HarmonicFractalCore:
             "adrenaline": 0.0,
             "texture_bonus": round(texture_bonus, 9),
             "threat_delta": round(threat_delta, 6),
+            "drift_factor": round(drift_factor, 8),
+            "sentiment_score": round(sentiment_score, 6),
+            "exchange_quality": round(exchange_quality, 6),
         }
         self._evolve_identity(survival_event or "SAFE_BASELINE", threat_delta, texture_bonus)
         self._save_self_perception()
