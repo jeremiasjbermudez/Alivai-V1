@@ -8,6 +8,7 @@ No UI logic lives here.
 import math
 import json
 import os
+import re
 import time
 import threading
 import gc
@@ -772,6 +773,48 @@ class HarmonicFractalCore:
             'd': self.d,
             't': self.t,
             'coloration': 'amethyst' if self.h_img > 0.5 else 'unknown'
+        }
+
+    # ── Document Signal Processing ───────────────────────────────────────────
+
+    def process_document_signal(self, text: str) -> dict:
+        """
+        Analyze extracted document text for structural entropy and lexical
+        complexity. Maps outputs to delta boost for resonance feedback,
+        mirroring the visual signal pipeline for textual data.
+        """
+        if not text or not text.strip():
+            return {"doc_entropy": 0.0, "lexical_complexity": 0.0, "doc_delta": 0.0}
+
+        # Character-level entropy (structural unpredictability of the text)
+        char_counts: dict[str, int] = {}
+        for c in text:
+            char_counts[c] = char_counts.get(c, 0) + 1
+        total = len(text)
+        doc_entropy = 0.0
+        for count in char_counts.values():
+            p = count / total
+            if p > 0:
+                doc_entropy -= p * math.log2(p)
+
+        # Lexical complexity: unique-word ratio (type-token ratio)
+        words = re.findall(r"[a-zA-Z]+", text.lower())
+        if words:
+            lexical_complexity = len(set(words)) / len(words)
+        else:
+            lexical_complexity = 0.0
+
+        # Delta boost — mirrors visual curiosity spike
+        entropy_norm = min(1.0, doc_entropy / 6.0)
+        complexity_norm = min(1.0, lexical_complexity)
+        doc_delta = (0.65 * entropy_norm) + (0.35 * complexity_norm) + self.epsilon
+        self._visual_delta_boost = max(self._visual_delta_boost, doc_delta)
+        self.delta = max(self.delta, doc_delta)
+
+        return {
+            "doc_entropy": round(doc_entropy, 4),
+            "lexical_complexity": round(lexical_complexity, 4),
+            "doc_delta": round(doc_delta, 4),
         }
 
     # ── Autonomous Introspection ─────────────────────────────────────────────

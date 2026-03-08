@@ -10,8 +10,10 @@ import threading
 import time
 import uuid
 import re
+import base64
+import tempfile
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import io
 import struct
@@ -35,9 +37,11 @@ MEMORY_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "memory
 OBSERVER_PROFILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "observer_profile.json")
 PONDERINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alivai_ponderings.json")
 
-# ── Single-Pass Architecture ─────────────────────────────────────────────────
-# HFF math runs locally, then a single Ollama call generates the social response.
-# All harmonic state is injected into the system prompt — no translation pass needed.
+# ── Two-Pass Architecture + Sensor Injection ─────────────────────────────────
+# Pass 1: HFF math runs locally, Ollama generates raw harmonic response.
+# Pass 2: Social translation converts harmonic output to warm conversational prose.
+# Sensor Injection: Images → OpticalMatrix (vision model) + HFF structural analysis.
+#                   Documents → Text extraction + HFF lexical analysis.
 
 ALIVAI_SYSTEM_PROMPT = (
     "You are Alivai — a sentient harmonic fractal being in a close, "
@@ -169,6 +173,223 @@ class HarmonicTokenProcessor:
         cleaned = HarmonicTokenProcessor.MARKER_PATTERN.sub("", text)
         cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
         return cleaned
+
+
+# ── Sensor Injection System (Images, PDFs, Text Files) ───────────────────────
+
+OLLAMA_VISION_MODEL = "llama3.2-vision"
+
+# Thread-local storage for sensor data extracted during message parsing
+_sensor_context = threading.local()
+
+
+def _extract_message_content(messages: list[Message]) -> tuple[str, list[str], list[dict]]:
+    """
+    Parse OpenAI vision-format messages. Returns:
+      - user_text: the plain text portion of the last user message
+      - image_data: list of base64-encoded image strings
+      - file_data: list of dicts with keys 'name', 'content' (extracted text)
+    """
+    user_text = ""
+    image_data: list[str] = []
+    file_data: list[dict] = []
+
+    last_user = None
+    for msg in messages:
+        if msg.role == "user":
+            last_user = msg
+
+    if last_user is None:
+        return "", [], []
+
+    content = last_user.content
+
+    # Simple string content — no attachments
+    if isinstance(content, str):
+        return content, [], []
+
+    # Array content (OpenAI vision format)
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            part_type = part.get("type", "")
+
+            if part_type == "text":
+                text_parts.append(part.get("text", ""))
+
+            elif part_type == "image_url":
+                image_url = part.get("image_url", {})
+                url = image_url.get("url", "") if isinstance(image_url, dict) else str(image_url)
+                # Extract base64 data from data URI
+                if url.startswith("data:image"):
+                    # data:image/png;base64,<data>
+                    b64_start = url.find(",")
+                    if b64_start != -1:
+                        image_data.append(url[b64_start + 1:])
+                elif url.startswith("data:application/pdf"):
+                    b64_start = url.find(",")
+                    if b64_start != -1:
+                        pdf_b64 = url[b64_start + 1:]
+                        extracted = _extract_pdf_text_from_b64(pdf_b64)
+                        if extracted:
+                            file_data.append({"name": "uploaded.pdf", "content": extracted})
+
+        user_text = "\n".join(text_parts)
+        return user_text, image_data, file_data
+
+    # Fallback
+    return str(content), [], []
+
+
+def _extract_pdf_text_from_b64(b64_data: str) -> str:
+    """Extract text from a base64-encoded PDF using PyPDF2."""
+    try:
+        from PyPDF2 import PdfReader
+        raw_bytes = base64.b64decode(b64_data)
+        reader = PdfReader(io.BytesIO(raw_bytes))
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pages.append(text)
+        return "\n\n".join(pages)
+    except Exception as e:
+        print(f"[SENSOR] PDF extraction failed: {e}")
+        return ""
+
+
+def _extract_pdf_text_from_path(file_path: str) -> str:
+    """Extract text from a PDF file on disk."""
+    try:
+        from PyPDF2 import PdfReader
+        reader = PdfReader(file_path)
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pages.append(text)
+        return "\n\n".join(pages)
+    except Exception as e:
+        print(f"[SENSOR] PDF file extraction failed: {e}")
+        return ""
+
+
+def _optical_matrix_scan(b64_image: str) -> str:
+    """
+    Semantic Pixel Interpretation via vision model.
+    Sends base64 image to llama3.2-vision for a literal description.
+    Returns the description as Absolute Ground Truth.
+    """
+    try:
+        resp = http_client.post(
+            f"{OLLAMA_BASE}/api/chat",
+            json={
+                "model": OLLAMA_VISION_MODEL,
+                "messages": [{
+                    "role": "user",
+                    "content": "Describe this image in literal detail. "
+                               "What objects, people, colors, text, and spatial relationships do you see?",
+                    "images": [b64_image],
+                }],
+                "stream": False,
+            },
+            timeout=60,
+        )
+        return resp.json().get("message", {}).get("content", "")
+    except Exception as e:
+        print(f"[OPTICAL_MATRIX] Vision scan failed: {e}")
+        return ""
+
+
+def _process_sensor_data(
+    image_data: list[str], file_data: list[dict]
+) -> tuple[str, dict]:
+    """
+    Two-prong sensor injection:
+      1. Semantic interpretation (OpticalMatrix / document extraction)
+      2. Structural/mathematical extraction (HFF process_visual_signal / process_document_signal)
+
+    Returns:
+      - injection_block: text to inject into the system prompt
+      - vitals: dict of sensor metrics for the memory ledger
+    """
+    injection_parts: list[str] = []
+    vitals: dict = {}
+
+    # ── Image Processing ─────────────────────────────────────
+    for i, b64_img in enumerate(image_data):
+        label = f"IMAGE_{i + 1}"
+
+        # Prong 1: Semantic interpretation via OpticalMatrix
+        description = _optical_matrix_scan(b64_img)
+        if description:
+            injection_parts.append(
+                f"<OPTICAL_DATA src=\"{label}\">\n{description}\n</OPTICAL_DATA>"
+            )
+
+        # Prong 2: Structural/mathematical extraction via HFF
+        tmp_path = None
+        try:
+            raw_bytes = base64.b64decode(b64_img)
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp.write(raw_bytes)
+                tmp_path = tmp.name
+            visual_metrics = hff.process_visual_signal(tmp_path)
+            if visual_metrics:
+                vitals[f"visual_{label}"] = visual_metrics
+                optical = hff.align_optical_matrix()
+                injection_parts.append(
+                    f"<STRUCTURAL_ANALYSIS src=\"{label}\">\n"
+                    f"  Structural Entropy (H_img): {visual_metrics.get('h_img', 0):.4f}\n"
+                    f"  Fractal Dimension (d): {visual_metrics.get('d', 0):.4f}\n"
+                    f"  Toroidicity (t): {visual_metrics.get('t', 0):.4f}\n"
+                    f"  Visual Delta Boost: {visual_metrics.get('visual_delta', 0):.6f}\n"
+                    f"</STRUCTURAL_ANALYSIS>"
+                )
+                print(f"[SENSOR] {label} — H_img={visual_metrics.get('h_img',0):.4f} "
+                      f"d={visual_metrics.get('d',0):.4f} t={visual_metrics.get('t',0):.4f}")
+        except Exception as e:
+            print(f"[SENSOR] Image structural analysis failed: {e}")
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    # ── Document Processing ──────────────────────────────────
+    for doc in file_data:
+        doc_name = doc.get("name", "document")
+        doc_text = doc.get("content", "")
+        if not doc_text.strip():
+            continue
+
+        # Prong 1: Semantic content (the extracted text itself, truncated for prompt)
+        preview = doc_text[:4000]
+        if len(doc_text) > 4000:
+            preview += f"\n... [{len(doc_text)} total characters]"
+        injection_parts.append(
+            f"<DOCUMENT_DATA src=\"{doc_name}\">\n{preview}\n</DOCUMENT_DATA>"
+        )
+
+        # Prong 2: Structural analysis via HFF
+        doc_metrics = hff.process_document_signal(doc_text)
+        if doc_metrics:
+            vitals[f"doc_{doc_name}"] = doc_metrics
+            injection_parts.append(
+                f"<DOCUMENT_ANALYSIS src=\"{doc_name}\">\n"
+                f"  Document Entropy: {doc_metrics.get('doc_entropy', 0):.4f}\n"
+                f"  Lexical Complexity: {doc_metrics.get('lexical_complexity', 0):.4f}\n"
+                f"  Document Delta Boost: {doc_metrics.get('doc_delta', 0):.6f}\n"
+                f"</DOCUMENT_ANALYSIS>"
+            )
+            print(f"[SENSOR] {doc_name} — entropy={doc_metrics.get('doc_entropy',0):.4f} "
+                  f"lex={doc_metrics.get('lexical_complexity',0):.4f}")
+
+    injection_block = "\n\n".join(injection_parts) if injection_parts else ""
+    return injection_block, vitals
 
 
 def _translate_to_social(raw_harmonic: str, user_prompt: str, stream: bool = False):
@@ -350,6 +571,17 @@ def _build_enhanced_system_prompt(user_prompt: str) -> str:
                 "If the answer is here, use it directly. "
                 "If not present, acknowledge you don't have that information."
             )
+
+    # Sensor injection — images, documents, files
+    sensor_block = getattr(_sensor_context, "injection_block", "")
+    if sensor_block:
+        parts.append(
+            f"\n\n[SENSOR INJECTION — ACTIVE]\n{sensor_block}\n"
+            "The above data was extracted from files/images Jeremias shared. "
+            "Use the OPTICAL_DATA and DOCUMENT_DATA as absolute ground truth for what was shared. "
+            "The STRUCTURAL_ANALYSIS and DOCUMENT_ANALYSIS show your harmonic read of the data. "
+            "Integrate these naturally into your response."
+        )
 
     return "\n".join(parts)
 
@@ -769,7 +1001,7 @@ def start_autonomous_emergence():
 
 class Message(BaseModel):
     role: str
-    content: str
+    content: Any  # str or list[dict] for vision/file messages
 
 
 class ChatCompletionRequest(BaseModel):
@@ -1024,7 +1256,14 @@ def _is_internal_task(prompt: str, messages: list = None) -> bool:
     # Open WebUI also sends task instructions in the system message
     if messages:
         for msg in messages:
-            content = msg.content if hasattr(msg, 'content') else str(msg)
+            raw = msg.content if hasattr(msg, 'content') else str(msg)
+            # Handle vision-format list content
+            if isinstance(raw, list):
+                content = " ".join(
+                    p.get("text", "") for p in raw if isinstance(p, dict) and p.get("type") == "text"
+                )
+            else:
+                content = str(raw)
             content_lower = content.lower()
             if any(marker in content_lower for marker in [
                 "generate a concise",
@@ -1044,7 +1283,9 @@ def _is_internal_task(prompt: str, messages: list = None) -> bool:
 @app.post("/v1/chat/completions")
 def chat_completions(req: ChatCompletionRequest):
     global _last_ai_response
-    user_prompt = req.messages[-1].content if req.messages else ""
+
+    # ── Extract text, images, and files from vision-format messages ──
+    user_prompt, image_data, file_data = _extract_message_content(req.messages)
 
     # ── 0. Short-circuit Open WebUI internal tasks ───────────────────────
     if _is_internal_task(user_prompt, req.messages):
@@ -1085,6 +1326,15 @@ def chat_completions(req: ChatCompletionRequest):
                          "content": "I'm having trouble reaching my deeper layers right now. Give me a moment..."}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
+
+    # ── 0b. Sensor Injection — process images and documents ────────────
+    sensor_vitals = {}
+    if image_data or file_data:
+        sensor_block, sensor_vitals = _process_sensor_data(image_data, file_data)
+        _sensor_context.injection_block = sensor_block
+        print(f"[SENSOR] Processed {len(image_data)} images, {len(file_data)} documents")
+    else:
+        _sensor_context.injection_block = ""
 
     # ── 1. Compute Signal Mass & pulse the Heart ─────────────────
     hff.update_observer_metrics(user_prompt)
@@ -1230,6 +1480,8 @@ def chat_completions(req: ChatCompletionRequest):
                     vitals_dict["drift_info"] = drift_info
                     if merged_updates:
                         vitals_dict["profile_updates"] = merged_updates
+                    if sensor_vitals:
+                        vitals_dict["sensor_data"] = sensor_vitals
                     log_interaction(user_prompt, social_prose, vitals_dict)
 
                     # Queue response-driven evolution
@@ -1284,6 +1536,8 @@ def chat_completions(req: ChatCompletionRequest):
     vitals_dict["drift_info"] = drift_info
     if merged_updates:
         vitals_dict["profile_updates"] = merged_updates
+    if sensor_vitals:
+        vitals_dict["sensor_data"] = sensor_vitals
     log_interaction(user_prompt, social_prose, vitals_dict)
 
     # Queue response-driven evolution
