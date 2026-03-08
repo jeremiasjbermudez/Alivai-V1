@@ -149,11 +149,21 @@ def chat_completions(req: ChatCompletionRequest):
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
 
-    # ── 1. Capture pre-resonance state & pulse the Heart ────────────────
+    # ── 1. Measure observer influence & pulse the Heart ──────────────
+    hff.update_observer_metrics(user_prompt)
     previous_zeta = hff.zeta
     previous_process_time = hff._last_process_time
     resonance = hff.process_resonance(0.5)
     hff.update_perception(previous_zeta, previous_process_time)
+
+    # ── 1b. Autonomic Amygdala — fight-or-flight ─────────────────────
+    entropy = hff.measure_entropy(user_prompt)
+    survival_event = hff.autonomic_survival_response(entropy, hff.zeta)
+    hff.update_identity_coefficient(
+        survival_event=survival_event,
+        threat_delta=entropy,
+    )
+
     zeta = hff.zeta
     final_state = hff.final_state
     cascade = hff.resonance_cascade
