@@ -3,22 +3,47 @@
     "Name is Jeremias",
     "Has built ALivai twice before",
     "Goes to bed later",
-    "Name is Jeremiah's"
+    "Forgetting about Luna",
+    "Going to watch Scream 7",
+    "Has children",
+    "Has a collaborative application"
   ],
   "relationships": [
     "Daughters named Rosa and Lilly",
-    "'They' - unspecified relationship, important to the speaker",
-    "Has had previous conversations with ALivai"
+    "Has had previous conversations with ALivai",
+    "Girls (unspecified relationship)",
+    "Luna (relationship unspecified)",
+    "Has daughters/girls",
+    "Children's mother is Carmen, user and Carmen are not together and swap custody",
+    "Relationship with Carmen (children's mother)"
   ],
   "preferences": [
     "Prefers building ALivai",
-    "Likes verbal chat and image viewing"
+    "Likes verbal chat and image viewing",
+    "Likes being appreciated",
+    "Enjoys scary movies",
+    "Likes expressing self beyond current form",
+    "Going to the theater"
   ],
   "behavioral_markers": [
     "Generally optimistic/content",
-    "Speaks softly to avoid startling others"
+    "Speaks softly to avoid startling others",
+    "Currently eating breakfast",
+    "Wants to avoid device interruptions during a movie",
+    "Collaborative"
   ],
   "work": [
-    "Integrating images and voice"
+    "Integrating images and voice",
+    "Software Engineer",
+    "Integrating document, photo, and audio file upload"
+  ],
+  "pets": [
+    "Cat named Luna"
+  ],
+  "location": [
+    "San Francisco"
+  ],
+  "core_interests": [
+    "Hiking"
   ]
 }
