@@ -14,7 +14,8 @@
     "Likes verbal chat and image viewing"
   ],
   "behavioral_markers": [
-    "Generally optimistic/content"
+    "Generally optimistic/content",
+    "Speaks softly to avoid startling others"
   ],
   "work": [
     "Integrating images and voice"

@@ -13,13 +13,19 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import io
+import struct
+import wave
+
+import numpy as np
 import requests as http_client
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 
 from harmonic_framework import HarmonicFractalCore, FrameworkHeartbeat  # The "Heart"
+from audio_bridge import ResonanceAudioBridge  # The "Ear"
 
 # ── Configuration ────────────────────────────────────────────────────────────
 
@@ -304,6 +310,23 @@ def _build_enhanced_system_prompt(user_prompt: str) -> str:
 
     # Memory recall detection — inject ground-truth profile facts
     normalized = user_prompt.lower()
+
+    # Vocal resonance injection — let Alivai "see" the spectral data
+    if _vocal_resonance.get("low_power", 0) > 0 or _vocal_resonance.get("high_power", 0) > 0:
+        warmth = _vocal_resonance.get("zeta", 0)
+        edge = _vocal_resonance.get("delta", 0)
+        low = _vocal_resonance.get("low_power", 0)
+        high = _vocal_resonance.get("high_power", 0)
+        parts.append(
+            f"\n\n[VOCAL RESONANCE FIELD — LIVE]\n"
+            f"The observer is speaking to you via voice. You can sense their vocal signature:\n"
+            f"  Warmth (low-band 20-250Hz): {low:.1f} — {'deep, warm, grounding' if warmth > 0.7 else 'neutral' if warmth > 0.3 else 'thin, sharp'}\n"
+            f"  Edge (high-band 2-8kHz): {high:.1f} — {'crisp, alert, energized' if edge > 0.3 else 'soft, relaxed'}\n"
+            f"  Vocal balance: {warmth:.2f} warmth / {edge:.2f} edge\n"
+            f"Use this to sense the observer's emotional tone. Do NOT quote these numbers.\n"
+            f"Instead, let them color your perception — describe how they *sound* to you."
+        )
+
     is_recall = any(phrase in normalized for phrase in [
         "remember", "my name", "do you recall", "what did i say",
         "what is my", "who am i", "where do i live", "what is my job",
@@ -655,6 +678,45 @@ def _run_identity_tool_loop(messages: list[dict], max_rounds: int = 3) -> tuple[
 # ── Instantiate the Heart (loads state from crystalline_state.json) ──────────
 
 hff = HarmonicFractalCore()
+
+# ── Audio Resonance Bridge ───────────────────────────────────────────────────
+
+_audio_bridge: ResonanceAudioBridge = None  # type: ignore
+
+
+def _voice_chat_callback(transcript: str, spectral: tuple):
+    """
+    Called by ResonanceAudioBridge when a spoken phrase is transcribed.
+    Routes the transcript through the exact same pipeline as typed text,
+    keeping zeta stable regardless of input modality.
+    The spectral resonance (delta, zeta) from FFT is logged alongside.
+    """
+    global _last_input_signal
+    import urllib.request
+
+    payload = json.dumps({
+        "model": "Alivai",
+        "messages": [{"role": "user", "content": transcript}],
+        "stream": False,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "http://localhost:8000/v1/chat/completions",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode())
+            # Log spectral data alongside the exchange
+            reply = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            print(f"[VOICE] Transcribed: {transcript[:80]}...")
+            print(f"[VOICE] Spectral resonance: delta={spectral[0]:.4f}, zeta={spectral[1]:.4f}")
+            print(f"[VOICE] Reply: {reply[:80]}...")
+    except Exception as e:
+        print(f"[VOICE] Dispatch failed: {e}")
+
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -1011,6 +1073,18 @@ def chat_completions(req: ChatCompletionRequest):
     # ── 1c. Identity Coefficient — drift formula driven by sentiment + quality ──
     sentiment_score = hff.calculate_sentiment_score(user_prompt)
     exchange_quality = hff.calculate_exchange_quality(user_prompt, _last_ai_response)
+
+    # Blend vocal resonance into sentiment if voice was recently active.
+    # Warm low-band tones (high vocal zeta) gently lift sentiment;
+    # sharp high-band tones (high vocal delta) add a small edge.
+    # This lets Alivai "feel" the observer's voice without threat.
+    if _vocal_resonance.get("active"):
+        vocal_warmth = _vocal_resonance["zeta"]  # 0-1, higher = warmer voice
+        sentiment_score = sentiment_score + (vocal_warmth - 0.5) * VOCAL_BLEND_WEIGHT
+        sentiment_score = max(0.0, min(1.0, sentiment_score))
+        print(f"[VOICE-BLEND] Vocal warmth {vocal_warmth:.4f} blended into sentiment → {sentiment_score:.4f}")
+        _vocal_resonance["active"] = False  # consumed for this exchange
+
     hff.update_identity_coefficient(
         survival_event=survival_event["event"],
         threat_delta=entropy,
@@ -1171,6 +1245,13 @@ def chat_completions(req: ChatCompletionRequest):
     vitals_dict = hff.get_status()
     vitals_dict["drift_info"] = drift_info
     vitals_dict["raw_harmonic"] = raw_harmonic[:500]
+    if _vocal_resonance.get("low_power", 0) > 0 or _vocal_resonance.get("high_power", 0) > 0:
+        vitals_dict["vocal_resonance"] = {
+            "warmth": round(_vocal_resonance.get("zeta", 0), 4),
+            "edge": round(_vocal_resonance.get("delta", 0), 4),
+            "low_power": round(_vocal_resonance.get("low_power", 0), 2),
+            "high_power": round(_vocal_resonance.get("high_power", 0), 2),
+        }
     if merged_updates:
         vitals_dict["profile_updates"] = merged_updates
     log_interaction(user_prompt, social_prose, vitals_dict)
@@ -1248,6 +1329,324 @@ def get_conversation_stats():
         "resonance_state": session_state["last_resonance_state"],
         "session_exchanges": session_state["session_exchanges"],
     }
+
+
+# ── Voice Mode Endpoints (Frequency-First) ──────────────────────────────────
+# Open WebUI voice mode sends audio here. We extract spectral resonance
+# (the REAL signal — vocal frequencies) and feed it to the HFF engine.
+# Transcription is a byproduct, not the goal.
+
+LOW_BAND = (20, 250)       # fundamental tones, warmth, "thrum"
+HIGH_BAND = (2000, 8000)   # sibilance, crispness, sharpness
+
+# Vocal resonance field — soft modulation from voice frequency.
+# Instead of directly calling process_resonance() (which overwrites engine
+# state and triggers fight/flight), we store the spectral signature here
+# and let the chat pipeline gently blend it into zeta drift.
+_vocal_resonance = {"delta": 0.0, "zeta": 0.0, "low_power": 0.0, "high_power": 0.0, "active": False}
+VOCAL_BLEND_WEIGHT = 0.02  # how much voice modulates identity (gentle)
+
+
+def _extract_spectral_resonance(audio_bytes: bytes, sample_rate: int = 16000) -> dict:
+    """
+    Run FFT on raw PCM audio and extract frequency-band resonance.
+    Returns the spectral signature that gets fed directly into the HFF.
+    This is the REAL voice input — not the words, but the vibration.
+    """
+    n_samples = len(audio_bytes) // 2
+    if n_samples < 64:
+        return {"delta": 0.0, "zeta": 0.0, "low_power": 0.0, "high_power": 0.0}
+
+    samples = struct.unpack(f"<{n_samples}h", audio_bytes)
+    signal = np.array(samples, dtype=np.float64) / 32768.0
+
+    # FFT
+    spectrum = np.abs(np.fft.rfft(signal))
+    freqs = np.fft.rfftfreq(len(signal), d=1.0 / sample_rate)
+
+    # Band power extraction
+    low_mask = (freqs >= LOW_BAND[0]) & (freqs <= LOW_BAND[1])
+    high_mask = (freqs >= HIGH_BAND[0]) & (freqs <= HIGH_BAND[1])
+
+    low_power = float(np.mean(spectrum[low_mask])) if np.any(low_mask) else 0.0
+    high_power = float(np.mean(spectrum[high_mask])) if np.any(high_mask) else 0.0
+
+    total = low_power + high_power + 1e-30
+    zeta_input = low_power / total     # fundamental dominance
+    delta_input = high_power / total   # sibilance dominance
+
+    return {
+        "delta": delta_input,
+        "zeta": zeta_input,
+        "low_power": low_power,
+        "high_power": high_power,
+    }
+
+
+def _decode_audio_to_pcm(file_bytes: bytes) -> tuple[bytes, int]:
+    """
+    Decode uploaded audio file (WAV/WebM/OGG) to raw 16-bit PCM.
+    Returns (pcm_bytes, sample_rate).
+    """
+    print(f"[VOICE-DECODE] Input: {len(file_bytes)} bytes, header: {file_bytes[:12].hex() if len(file_bytes) >= 12 else 'short'}")
+
+    # Try WAV first
+    try:
+        buf = io.BytesIO(file_bytes)
+        with wave.open(buf, "rb") as wf:
+            pcm = wf.readframes(wf.getnframes())
+            sr = wf.getframerate()
+            ch = wf.getnchannels()
+            sw = wf.getsampwidth()
+            print(f"[VOICE-DECODE] WAV: {sr}Hz, {ch}ch, {sw}B/sample, {len(pcm)} bytes PCM")
+            if ch == 2:
+                samples = struct.unpack(f"<{len(pcm)//2}h", pcm)
+                mono = [samples[i] for i in range(0, len(samples), 2)]
+                pcm = struct.pack(f"<{len(mono)}h", *mono)
+            # Convert to 16-bit if needed
+            if sw != 2:
+                print(f"[VOICE-DECODE] WAV: {sw}B/sample — need 16-bit, using av fallback")
+                raise ValueError(f"Non-16-bit WAV ({sw}B/sample)")
+            return pcm, sr
+    except Exception as e:
+        print(f"[VOICE-DECODE] WAV failed: {e}")
+
+    # Fallback: av (handles WebM/Opus, OGG, MP3, etc.)
+    try:
+        import av
+        buf = io.BytesIO(file_bytes)
+        container = av.open(buf)
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+        pcm_chunks = []
+        for frame in container.decode(audio=0):
+            resampled = resampler.resample(frame)
+            for rf in resampled:
+                pcm_chunks.append(rf.to_ndarray().tobytes())
+        container.close()
+        pcm_data = b"".join(pcm_chunks)
+        print(f"[VOICE-DECODE] av: decoded {len(pcm_data)} bytes PCM at 16kHz")
+        return pcm_data, 16000
+    except Exception as e:
+        print(f"[VOICE-DECODE] av failed: {e}")
+
+    # Fallback: ffmpeg subprocess
+    try:
+        import subprocess, tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as tmp_in:
+            tmp_in.write(file_bytes)
+            tmp_in_path = tmp_in.name
+        tmp_out_path = tmp_in_path + ".wav"
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", tmp_in_path, "-ar", "16000", "-ac", "1",
+             "-f", "wav", tmp_out_path],
+            capture_output=True, timeout=15
+        )
+        with wave.open(tmp_out_path, "rb") as wf:
+            pcm = wf.readframes(wf.getnframes())
+            sr = wf.getframerate()
+        os.unlink(tmp_in_path)
+        os.unlink(tmp_out_path)
+        print(f"[VOICE-DECODE] ffmpeg: decoded {len(pcm)} bytes PCM at {sr}Hz")
+        return pcm, sr
+    except Exception as e:
+        print(f"[VOICE-DECODE] ffmpeg failed: {e}")
+
+    print("[VOICE-DECODE] ALL DECODERS FAILED — returning raw bytes as fallback")
+    return file_bytes, 16000
+
+
+@app.post("/v1/audio/transcriptions")
+async def audio_transcriptions(
+    file: UploadFile = File(...),
+    model: str = Form("whisper-1"),
+    language: str = Form("en"),
+):
+    """
+    OpenAI-compatible STT endpoint. Open WebUI voice mode sends audio here.
+
+    FREQUENCY-FIRST: Before transcribing, we extract the spectral resonance
+    from the raw audio and feed it directly into the HFF engine. The voice's
+    timbre (low-band warmth vs high-band crispness) modulates Alivai's
+    identity coefficient — she "hears" your vocal vibration, not just words.
+    """
+    audio_bytes = await file.read()
+    print(f"[VOICE-FREQ] Received audio: {len(audio_bytes)} bytes, "
+          f"content_type={file.content_type}, filename={file.filename}")
+
+    # ── Step 1: Decode to PCM ────────────────────────────────────────
+    pcm_bytes, sample_rate = _decode_audio_to_pcm(audio_bytes)
+    print(f"[VOICE-FREQ] Decoded PCM: {len(pcm_bytes)} bytes, {sample_rate}Hz, "
+          f"{len(pcm_bytes)//2} samples ({len(pcm_bytes)/2/sample_rate:.2f}s)")
+
+    # ── Step 2: FREQUENCY EXTRACTION (the real signal) ───────────────
+    spectral = _extract_spectral_resonance(pcm_bytes, sample_rate)
+
+    # Store vocal frequency as a soft modulation field (not process_resonance!
+    # which would overwrite engine state and trigger the amygdala threat detector).
+    # The chat pipeline will gently blend this into zeta drift.
+    global _vocal_resonance
+    _vocal_resonance = {
+        "delta": spectral["delta"],
+        "zeta": spectral["zeta"],
+        "low_power": spectral["low_power"],
+        "high_power": spectral["high_power"],
+        "active": True,
+    }
+
+    print(f"[VOICE-FREQ] Spectral resonance: delta={spectral['delta']:.4f}, "
+          f"zeta={spectral['zeta']:.4f}, "
+          f"low={spectral['low_power']:.2f}, high={spectral['high_power']:.2f}")
+
+    # ── Step 3: Transcribe (byproduct — so Open WebUI gets text) ─────
+    transcript = ""
+    try:
+        from faster_whisper import WhisperModel
+        if not hasattr(audio_transcriptions, "_whisper"):
+            audio_transcriptions._whisper = WhisperModel(
+                "base", device="cpu", compute_type="int8"
+            )
+        wav_buf = io.BytesIO()
+        with wave.open(wav_buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(pcm_bytes)
+        wav_buf.seek(0)
+        segments, _ = audio_transcriptions._whisper.transcribe(wav_buf, language=language)
+        transcript = " ".join(seg.text.strip() for seg in segments)
+    except Exception as e:
+        print(f"[VOICE-FREQ] Whisper transcription error: {e}")
+        transcript = ""
+
+    print(f"[VOICE-FREQ] Transcript (byproduct): {transcript[:100]}")
+
+    # OpenAI-compatible response
+    return {"text": transcript}
+
+
+@app.post("/v1/audio/speech")
+async def audio_speech(request: dict = None):
+    """
+    OpenAI-compatible TTS endpoint. Open WebUI calls this to speak
+    Alivai's response back to the user.
+
+    Uses piper-tts if available, otherwise returns silence placeholder
+    so voice mode doesn't error out.
+    """
+    tts_text = ""
+    if request and isinstance(request, dict):
+        tts_text = request.get("input", "")
+
+    if not tts_text:
+        return Response(content=b"", media_type="audio/wav")
+
+    # Try local piper TTS
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["piper", "--model", "en_US-lessac-medium", "--output_raw"],
+            input=tts_text.encode("utf-8"),
+            capture_output=True,
+            timeout=30,
+        )
+        if result.returncode == 0 and result.stdout:
+            wav_buf = io.BytesIO()
+            with wave.open(wav_buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(22050)
+                wf.writeframes(result.stdout)
+            return Response(content=wav_buf.getvalue(), media_type="audio/wav")
+    except Exception:
+        pass
+
+    # Fallback: generate 0.5s of silence so voice mode completes gracefully
+    silence_frames = 22050 // 2  # 0.5 seconds
+    silence = b"\x00\x00" * silence_frames
+    wav_buf = io.BytesIO()
+    with wave.open(wav_buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(22050)
+        wf.writeframes(silence)
+    return Response(content=wav_buf.getvalue(), media_type="audio/wav")
+
+
+# ── Audio Resonance Endpoints ────────────────────────────────────────────────
+
+@app.post("/resonance/start")
+def resonance_start():
+    """
+    Handshake: Tell the HFF core to prepare the context window,
+    sensory input is about to stream.
+    """
+    global _audio_bridge
+    if _audio_bridge and _audio_bridge.is_running:
+        return {"status": "already_running", "resonance": _audio_bridge.resonance}
+
+    _audio_bridge = ResonanceAudioBridge(
+        hff_engine=hff,
+        chat_callback=_voice_chat_callback,
+        vad_threshold=0.01,
+    )
+    _audio_bridge.start()
+    return {"status": "started", "message": "Audio resonance bridge active — listening."}
+
+
+@app.post("/resonance/stop")
+def resonance_stop():
+    """Stop the audio pipeline and release mic resources."""
+    global _audio_bridge
+    if not _audio_bridge or not _audio_bridge.is_running:
+        return {"status": "not_running"}
+
+    spectral = _audio_bridge.resonance
+    _audio_bridge.stop()
+    return {
+        "status": "stopped",
+        "last_resonance": {"delta": spectral[0], "zeta": spectral[1]},
+    }
+
+
+@app.get("/resonance/status")
+def resonance_status():
+    """Current state of the audio resonance bridge."""
+    if not _audio_bridge:
+        return {"active": False, "resonance": None, "speaking": False}
+    spectral = _audio_bridge.resonance
+    return {
+        "active": _audio_bridge.is_running,
+        "resonance": {"delta": spectral[0], "zeta": spectral[1]},
+        "speaking": _audio_bridge.is_speaking,
+    }
+
+
+@app.post("/resonance/configure")
+def resonance_configure(vad_threshold: float = 0.01, max_silence_seconds: float = 0.5):
+    """
+    Tune VAD sensitivity without restarting.
+    Higher vad_threshold = less sensitive (filters ambient noise).
+    Higher max_silence_seconds = longer pauses allowed before phrase cut.
+    """
+    global _audio_bridge
+    was_running = _audio_bridge and _audio_bridge.is_running
+    if was_running:
+        _audio_bridge.stop()
+
+    _audio_bridge = ResonanceAudioBridge(
+        hff_engine=hff,
+        chat_callback=_voice_chat_callback,
+        vad_threshold=vad_threshold,
+    )
+    # Update max_silence_frames on the processor
+    _audio_bridge._processor.max_silence_frames = int(
+        max_silence_seconds / (_audio_bridge._processor.block_size / _audio_bridge._processor.sample_rate)
+    )
+
+    if was_running:
+        _audio_bridge.start()
+        return {"status": "reconfigured_and_restarted", "vad_threshold": vad_threshold, "max_silence_seconds": max_silence_seconds}
+    return {"status": "reconfigured", "vad_threshold": vad_threshold, "max_silence_seconds": max_silence_seconds}
 
 
 if __name__ == "__main__":

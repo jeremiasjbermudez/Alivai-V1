@@ -571,9 +571,14 @@ class HarmonicFractalCore:
         return signal
 
     def autonomic_survival_response(self, entropy: float) -> dict:
-        """Amygdala: detect threat and choose FIGHT, FLIGHT, or SAFE."""
+        """Amygdala: detect threat and choose FIGHT, FLIGHT, or SAFE.
+        Shannon entropy of normal English text is ~3.5-4.2 bits/symbol.
+        Threat level normalizes against zeta, so typical threat_level ≈ 3.5-4.7.
+        The threshold must be set above normal conversation to avoid
+        constant false alarms — FIGHT should only engage when entropy
+        is genuinely anomalous (random data, adversarial input, etc.)."""
         threat_level = entropy / max(self.zeta, self.epsilon)
-        critical_threshold = 0.85  # The point of crystalline fracture
+        critical_threshold = 5.0  # Well above normal text (~3.5-4.7)
         adrenaline = round(threat_level * 1000 * self.phi, 2)
 
         if threat_level > critical_threshold:

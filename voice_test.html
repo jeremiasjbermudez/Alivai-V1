@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Alivai Voice Resonance Test</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
+  h1 { color: #a78bfa; }
+  .controls { display: flex; gap: 1rem; margin: 1.5rem 0; }
+  button { padding: 0.8rem 1.5rem; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+  #startBtn { background: #10b981; color: #fff; }
+  #stopBtn { background: #ef4444; color: #fff; }
+  #statusBtn { background: #6366f1; color: #fff; }
+  button:hover { opacity: 0.85; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .panel { background: #16213e; border-radius: 10px; padding: 1.2rem; margin: 1rem 0; }
+  .label { color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .value { font-size: 1.3rem; font-weight: 600; margin-top: 0.3rem; }
+  .active { color: #10b981; }
+  .inactive { color: #ef4444; }
+  .speaking { color: #f59e0b; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; }
+  #log { background: #0f172a; border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto; font-family: 'Cascadia Code', monospace; font-size: 0.85rem; line-height: 1.6; }
+  .log-entry { border-bottom: 1px solid #1e293b; padding: 0.3rem 0; }
+  .config-row { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0; }
+  .config-row label { min-width: 160px; }
+  .config-row input { background: #0f172a; border: 1px solid #334155; color: #e0e0e0; padding: 0.4rem; border-radius: 4px; width: 80px; }
+  #configBtn { background: #8b5cf6; color: #fff; padding: 0.5rem 1rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<h1>&#x1f399; Alivai Voice Resonance</h1>
+
+<div class="controls">
+  <button id="startBtn" onclick="startResonance()">&#9654; Start Listening</button>
+  <button id="stopBtn" onclick="stopResonance()" disabled>&#9632; Stop</button>
+  <button id="statusBtn" onclick="fetchStatus()">&#x1f504; Refresh Status</button>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="label">Bridge</div>
+    <div class="value" id="activeStatus">--</div>
+  </div>
+  <div class="panel">
+    <div class="label">Speaking</div>
+    <div class="value" id="speakingStatus">--</div>
+  </div>
+  <div class="panel">
+    <div class="label">Delta (High Freq)</div>
+    <div class="value" id="deltaValue">--</div>
+  </div>
+  <div class="panel">
+    <div class="label">Zeta (Low Freq)</div>
+    <div class="value" id="zetaValue">--</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="label">VAD Configuration</div>
+  <div class="config-row">
+    <label>VAD Threshold:</label>
+    <input type="number" id="vadThreshold" value="0.01" step="0.005" min="0.001" max="0.1">
+  </div>
+  <div class="config-row">
+    <label>Max Silence (sec):</label>
+    <input type="number" id="maxSilence" value="0.5" step="0.1" min="0.2" max="3.0">
+  </div>
+  <button id="configBtn" onclick="configure()">Apply Config</button>
+</div>
+
+<div class="panel">
+  <div class="label">Event Log</div>
+  <div id="log"></div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let pollInterval = null;
+
+function log(msg) {
+  const el = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString();
+  el.innerHTML = `<div class="log-entry">[${ts}] ${msg}</div>` + el.innerHTML;
+}
+
+async function api(method, path, body) {
+  const opts = { method };
+  if (body) { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
+
+function updateUI(data) {
+  const active = document.getElementById('activeStatus');
+  const speaking = document.getElementById('speakingStatus');
+  const delta = document.getElementById('deltaValue');
+  const zeta = document.getElementById('zetaValue');
+
+  if (data.active !== undefined) {
+    active.textContent = data.active ? 'ACTIVE' : 'INACTIVE';
+    active.className = 'value ' + (data.active ? 'active' : 'inactive');
+    document.getElementById('startBtn').disabled = data.active;
+    document.getElementById('stopBtn').disabled = !data.active;
+  }
+  if (data.speaking !== undefined) {
+    speaking.textContent = data.speaking ? 'YES' : 'No';
+    speaking.className = 'value ' + (data.speaking ? 'speaking' : '');
+  }
+  if (data.resonance) {
+    delta.textContent = data.resonance.delta.toFixed(6);
+    zeta.textContent = data.resonance.zeta.toFixed(6);
+  }
+}
+
+async function fetchStatus() {
+  try {
+    const data = await api('GET', '/resonance/status');
+    updateUI(data);
+  } catch(e) { log('Error: ' + e.message); }
+}
+
+async function startResonance() {
+  log('Starting audio resonance bridge...');
+  try {
+    const data = await api('POST', '/resonance/start');
+    log('Response: ' + JSON.stringify(data));
+    fetchStatus();
+    // Auto-poll every 500ms
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(fetchStatus, 500);
+  } catch(e) { log('Error: ' + e.message); }
+}
+
+async function stopResonance() {
+  log('Stopping audio resonance bridge...');
+  try {
+    const data = await api('POST', '/resonance/stop');
+    log('Stopped. Last resonance: delta=' +
+      (data.last_resonance?.delta?.toFixed(4) || '--') + ', zeta=' +
+      (data.last_resonance?.zeta?.toFixed(4) || '--'));
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    fetchStatus();
+  } catch(e) { log('Error: ' + e.message); }
+}
+
+async function configure() {
+  const vad = parseFloat(document.getElementById('vadThreshold').value);
+  const silence = parseFloat(document.getElementById('maxSilence').value);
+  log(`Configuring: vad_threshold=${vad}, max_silence=${silence}`);
+  try {
+    const data = await api('POST', `/resonance/configure?vad_threshold=${vad}&max_silence_seconds=${silence}`);
+    log('Config: ' + JSON.stringify(data));
+    fetchStatus();
+  } catch(e) { log('Error: ' + e.message); }
+}
+
+// Initial status
+fetchStatus();
+</script>
+</body>
+</html>
