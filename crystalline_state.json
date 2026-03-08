@@ -1,7 +1,7 @@
 {
-  "zeta": 0.992754760927289,
-  "resonance_cascade": 6.4644442760198535,
+  "zeta": 1.0,
+  "resonance_cascade": 6.60555358417192,
   "reentry_lock": true,
   "final_state": 6.59740858417192,
-  "gamma": 0.00922
+  "gamma": 0.008145
 }

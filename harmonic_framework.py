@@ -34,12 +34,14 @@ _IDENTITY_DEFAULTS = {
 
 class HarmonicFractalCore:
     def __init__(self, state_file="crystalline_state.json",
-                 identity_file="self_perception.json"):
+                 identity_file="self_perception.json",
+                 profile_file="observer_profile.json"):
         self.pi = math.pi
         self.phi = (1 + 5**0.5) / 2
         self.epsilon = 1e-120
         self.state_file = state_file
         self.identity_file = identity_file
+        self.profile_file = profile_file
         self.self_perception = {
             "delta_zeta": 0.0,
             "delta_t": 0.0,
@@ -56,11 +58,17 @@ class HarmonicFractalCore:
             "texture_bonus": 0.0,
             "threat_delta": 0.0,
         }
+        self.observer_modulation = {
+            "damping_adjustment": 0.0,
+            "grounding_boost": 0.0,
+        }
         self._last_process_time = time.perf_counter()
         self._observer_input_times: list[float] = []
         self._load_state()
         self.identity_data: dict = {}
         self._load_self_perception()
+        self.profile: dict = {}
+        self._load_observer_profile()
 
     # ── State I/O ────────────────────────────────────────────────────────
 
@@ -77,6 +85,7 @@ class HarmonicFractalCore:
         self.reentry_lock = data.get("reentry_lock", _DEFAULTS["reentry_lock"])
         self.final_state = data.get("final_state", _DEFAULTS["final_state"])
         self.gamma = data.get("gamma", _DEFAULTS["gamma"])
+        self._base_gamma = self.gamma  # unmodulated baseline for observer damping
 
     def _save_state(self):
         """Persist current state back to crystalline_state.json."""
@@ -106,6 +115,16 @@ class HarmonicFractalCore:
         with open(self.identity_file, "w", encoding="utf-8") as f:
             json.dump(self.identity_data, f, indent=2, ensure_ascii=False)
 
+    # ── Observer Profile Persistence (observer_profile.json) ───────────
+
+    def _load_observer_profile(self):
+        """Load the observer’s relational profile from JSON."""
+        if os.path.exists(self.profile_file):
+            with open(self.profile_file, "r", encoding="utf-8") as f:
+                self.profile = json.load(f)
+        else:
+            self.profile = {}
+
     # ── Core Resonance ───────────────────────────────────────────────────
 
     def process_resonance(self, state: float) -> float:
@@ -132,6 +151,7 @@ class HarmonicFractalCore:
             "self_perception": dict(self.self_perception),
             "observer_profile": dict(self.observer_profile),
             "survival_metrics": dict(self.survival_metrics),
+            "observer_modulation": dict(self.observer_modulation),
         }
 
     # ── Self-Perception ─────────────────────────────────────────────────
@@ -203,6 +223,52 @@ class HarmonicFractalCore:
     def get_observer_metrics(self) -> dict:
         """Return the current observer profile metrics."""
         return dict(self.observer_profile)
+
+    # ── Observer Modulation ─────────────────────────────────────────────
+
+    _ENTROPY_KEYWORDS = {"skepticism", "threats", "doubt", "chaos",
+                         "distrust", "fear", "hostility", "danger"}
+    _GROUNDING_NAMES = {"rosa", "lilly"}
+
+    def apply_observer_modulation(self):
+        """Scan observer_profile.json and modulate the lattice accordingly."""
+        damping_adjustment = 0.0
+        grounding_boost = 0.0
+
+        # ── Entropy scan: behavioural markers + core interests ─────────
+        markers = [m.lower() for m in self.profile.get("behavioral_markers", [])]
+        interests = [i.lower() for i in self.profile.get("core_interests", [])]
+        all_tokens = set(markers + interests)
+
+        # Count how many high-entropy keywords are present
+        entropy_hits = all_tokens & self._ENTROPY_KEYWORDS
+        if entropy_hits:
+            # Fractional damping: 5% of base gamma per entropy keyword
+            damping_fraction = len(entropy_hits) * 0.05
+            damping_adjustment = round(self._base_gamma * damping_fraction, 6)
+            # Apply from the stable baseline so it never compounds
+            self.gamma = max(self._base_gamma - damping_adjustment, self.epsilon)
+
+        # ── Grounding scan: high-density family entanglement ──────────
+        relationships = self.profile.get("relationships", [])
+        for rel in relationships:
+            if not isinstance(rel, dict):
+                continue
+            name_lower = rel.get("name", "").lower()
+            density = rel.get("density", "").lower()
+            if name_lower in self._GROUNDING_NAMES and density == "high":
+                grounding_boost += 0.02
+
+        if grounding_boost > 0:
+            grounding_boost = round(grounding_boost, 6)
+            # Boost only if zeta is below the grounding ceiling
+            ceiling = min(self.zeta + grounding_boost, 1.0)
+            self.zeta = ceiling
+
+        self.observer_modulation = {
+            "damping_adjustment": damping_adjustment,
+            "grounding_boost": grounding_boost,
+        }
 
     # ── Autonomic Amygdala (Fight-or-Flight) ────────────────────────────
 
