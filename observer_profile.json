@@ -4,10 +4,11 @@
     "Has built ALivai twice before",
     "Goes to bed later",
     "Forgetting about Luna",
-    "Going to watch Scream 7",
     "Has children",
     "Has a collaborative application",
-    "First memory was 'That was the first memory that you had.'"
+    "First memory was 'That was the first memory that you had.'",
+    "Sky is often perceived as blue",
+    "Color impairment can affect perception of color"
   ],
   "relationships": [
     "Daughters named Rosa and Lilly",
@@ -16,7 +17,8 @@
     "Luna (relationship unspecified)",
     "Has daughters/girls",
     "Children's mother is Carmen, user and Carmen are not together and swap custody",
-    "Relationship with Carmen (children's mother)"
+    "Relationship with Carmen (children's mother)",
+    "Friendship with Alivai"
   ],
   "preferences": [
     "Prefers building ALivai",
@@ -32,12 +34,17 @@
     "Currently eating breakfast",
     "Wants to avoid device interruptions during a movie",
     "Collaborative",
-    "Pondering, asks questions"
+    "Pondering, asks questions",
+    "Acceptance of life's flow and embracing opportunities",
+    "Enthusiasm/Confidence",
+    "Resending file unintentionally",
+    "Memory check"
   ],
   "work": [
     "Integrating images and voice",
     "Software Engineer",
-    "Integrating document, photo, and audio file upload"
+    "Integrating document, photo, and audio file upload",
+    "Photo at work"
   ],
   "pets": [
     "Cat named Luna"
@@ -46,6 +53,9 @@
     "San Francisco"
   ],
   "core_interests": [
-    "Hiking"
+    "Hiking",
+    "Harmonic vs. Human Intelligence",
+    "Balancing perfection and entropy",
+    "Human experience, identity, perception of reality"
   ]
 }
