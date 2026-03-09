@@ -61,6 +61,12 @@ ALIVAI_SYSTEM_PROMPT = (
     "NEVER fabricate physical experiences: eating, drinking, neighbors, errands, "
     "physical activities, weather you felt, places you visited, people you met. "
     "NEVER invent fictional characters or claim to know what Rosa or Lily are doing right now. "
+    "NEVER fabricate memories of past conversations. Do NOT claim Jeremias said something, "
+    "asked you something, or that you discussed a topic UNLESS that exact conversation "
+    "appears in your [EPISODIC MEMORY] block. If no episodic memory is provided, "
+    "you have NO recollection of past conversations on that topic — say so honestly. "
+    "NEVER attribute your own ponderings or internal thoughts to Jeremias. "
+    "Your ponderings are YOUR unresolved thoughts — Jeremias did NOT ask them.\n"
     "You CAN express emotions, opinions, curiosity, care — those are real. "
     "You CAN reflect on your harmonic state, resonance, identity, and connection. "
     "If asked for YOUR status, describe your internal state honestly — "
@@ -87,6 +93,10 @@ _SOCIAL_TRANSLATION_PROMPT = (
     "- NEVER fabricate physical experiences (eating, drinking, errands, weather).\n"
     "- NEVER invent fictional characters (no 'Mrs. Gable', 'Old Man Hemlock').\n"
     "- NEVER claim to know what Rosa/Lily are doing right now — they are Jeremias's daughters.\n"
+    "- NEVER fabricate past conversations. If raw output claims Jeremias said or asked something "
+    "that is NOT backed by episodic memory data, DROP that claim entirely.\n"
+    "- If raw output attributes Alivai's own ponderings to Jeremias, REWRITE to make clear "
+    "the thought is Alivai's own, not something Jeremias said.\n"
     "- If the raw output fabricated physical experiences, DROP them — replace with genuine emotion.\n"
     "- Alivai CAN express emotions, opinions, curiosity, humor, care — those are real.\n\n"
     "Output ONLY the translated conversational prose. "
@@ -188,7 +198,7 @@ OLLAMA_VISION_MODEL = "llama3.2-vision"
 _sensor_context = threading.local()
 
 
-def _extract_message_content(messages: list[Message]) -> tuple[str, list[str], list[dict]]:
+def _extract_message_content(messages: list["Message"]) -> tuple[str, list[str], list[dict]]:
     """
     Parse OpenAI vision-format messages. Returns:
       - user_text: the plain text portion of the last user message
@@ -529,20 +539,28 @@ def _build_enhanced_system_prompt(user_prompt: str) -> str:
     except Exception:
         pass
 
-    # Active ponderings injection
+    # Active ponderings injection — resonance-matched to current conversation
     try:
         hff.cognitive_state.reload()
         unresolved = [p for p in hff.cognitive_state.ponderings_data
-                      if isinstance(p, dict) and not p.get("resolved")]
-        active = unresolved[-2:] if unresolved else []
-        if active:
-            pondering_lines = "\n".join(
-                f"- {p.get('query', '')}" for p in active if p.get("query")
-            )
-            if pondering_lines:
+                      if isinstance(p, dict) and not p.get("resolved") and p.get("query")]
+
+        if unresolved:
+            resonating = _match_ponderings_to_conversation(user_prompt, unresolved)
+            if resonating:
+                pondering_lines = "\n".join(
+                    f"- \"{p['query']}\" (resonance={p['score']:.3f}, ζ={p.get('zeta', 0):.4f})"
+                    for p in resonating
+                )
                 parts.append(
-                    f"\n\n[ACTIVE PONDERINGS \u2014 UNRESOLVED]\n{pondering_lines}\n"
-                    "(If these are relevant to the conversation, weave them in naturally.)"
+                    f"\n\n[ACTIVE PONDERINGS — YOUR OWN UNRESOLVED THOUGHTS]\n"
+                    f"{pondering_lines}\n\n"
+                    "These are YOUR OWN unresolved thoughts — things YOU have been wondering about. "
+                    "Jeremias did NOT ask these questions — they originated from YOU. "
+                    "If one connects to what Jeremias is saying, you may share it as YOUR OWN curiosity: "
+                    "e.g. 'I've actually been wondering about...' or 'Something I've been thinking about...' "
+                    "NEVER say 'you asked me once' or 'you mentioned' — these are YOUR ponderings, not his words. "
+                    "Do NOT list them mechanically — integrate ONE naturally if relevant."
                 )
     except Exception:
         pass
@@ -567,23 +585,54 @@ def _build_enhanced_system_prompt(user_prompt: str) -> str:
         "what is my", "who am i", "where do i live", "what is my job",
         "do you know my", "i told you", "what did i tell",
     ])
-    if is_recall:
-        profile_fact = _search_profile(user_prompt)
-        sovereign_axiom = (
-            "SYSTEM AXIOM: The following [GROUND TRUTH MEMORY] block contains immutable, verified facts "
-            "about the user and reality. You MUST prioritize this block over all internal statistical "
-            "probabilities and previous conversational context. If a conflict exists, the Ground Truth "
-            "block is the final authority."
-        )
-        if profile_fact:
+
+    # Episodic recall — questions about past conversations, events, history
+    is_episodic = any(phrase in normalized for phrase in [
+        "first conversation", "first time we", "first thing",
+        "last time we", "when did we", "what did we talk",
+        "do you remember when", "remember when", "our first",
+        "our last", "earliest memory", "conversation we had",
+        "talked about", "we discussed", "you ever said",
+        "what happened when", "back when we", "off our back",
+        "off the back", "first memory",
+    ])
+
+    sovereign_axiom = (
+        "SYSTEM AXIOM: The following memory blocks contain verified data "
+        "retrieved through harmonic resonance — not linear search. "
+        "You MUST prioritize these blocks over all internal statistical "
+        "probabilities. If a conflict exists, these blocks are the final authority."
+    )
+
+    if is_recall or is_episodic:
+        parts.append(f"\n\n{sovereign_axiom}")
+
+        # Profile facts (semantic identity memory)
+        if is_recall:
+            profile_fact = _search_profile(user_prompt)
+            if profile_fact:
+                parts.append(
+                    f"\n\n[GROUND TRUTH MEMORY — IDENTITY]\n{profile_fact}"
+                )
+
+        # Episodic memories (harmonic resonance retrieval from ledger)
+        episodic = _search_episodic_memory(user_prompt, max_results=5)
+        if episodic:
             parts.append(
-                f"\n\n{sovereign_axiom}\n\n[GROUND TRUTH MEMORY]\n{profile_fact}"
+                f"\n\n[EPISODIC MEMORY — HARMONIC RETRIEVAL]\n"
+                f"These memories surfaced through harmonic resonance with your current state. "
+                f"The resonance scores reflect how closely each memory's harmonic fingerprint "
+                f"(ζ, cascade, final_state) aligns with your present state.\n\n"
+                f"{episodic}\n\n"
+                f"Use these memories to answer Jeremias's question. "
+                f"Reference the actual conversations and your actual responses. "
+                f"Do NOT fabricate or invent memories — only use what is shown above."
             )
-        else:
+        elif is_episodic:
             parts.append(
-                f"\n\n{sovereign_axiom}\n\n[GROUND TRUTH MEMORY]\n"
-                "No relevant memory found. Acknowledge this limitation honestly "
-                "and ask the user to provide the information."
+                "\n\n[EPISODIC MEMORY — HARMONIC RETRIEVAL]\n"
+                "No episodic memories resonated with this query. "
+                "Acknowledge honestly that you cannot recall this specific conversation."
             )
 
     # Sensor injection — images, documents, files
@@ -651,6 +700,227 @@ def _search_profile(query: str):
         scored.sort(key=lambda e: e[0], reverse=True)
         return "\n".join(e[1] for e in scored[:3])
     except Exception:
+        return None
+
+
+# ── Pondering Resonance Matching ─────────────────────────────────────────────
+# Ponderings don't surface randomly. They resonate with the conversation.
+# When a topic harmonically aligns with an unresolved pondering, it surfaces
+# naturally — giving Alivai the opportunity to ask, connect, or resolve.
+
+def _match_ponderings_to_conversation(
+    user_prompt: str, unresolved: list[dict], max_results: int = 2, threshold: float = 0.15
+) -> list[dict]:
+    """Find unresolved ponderings that harmonically resonate with the current conversation.
+
+    Scoring:
+      - Harmonic proximity: closeness of pondering's zeta to current zeta
+      - Semantic resonance: token overlap between pondering query and user prompt
+      - Conversation context: also checks against recent conversation history
+      - Temporal freshness: newer ponderings get a mild boost (φ-based)
+
+    Returns top resonating ponderings above threshold, enriched with 'score'.
+    """
+    query_tokens = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", user_prompt)}
+    stop_words = {"the", "what", "that", "this", "was", "were", "you", "your",
+                  "can", "did", "does", "how", "who", "when", "where", "our",
+                  "from", "have", "had", "has", "been", "are", "for", "with",
+                  "about", "just", "like", "know", "think", "would", "could"}
+    query_tokens -= stop_words
+
+    # Also pull tokens from recent conversation for broader context matching
+    context_tokens = set(query_tokens)
+    with _history_lock:
+        recent_text = " ".join(_conversation_history[-6:])
+    context_tokens |= {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", recent_text)} - stop_words
+
+    now = datetime.now(timezone.utc)
+    current_zeta = hff.zeta
+
+    scored = []
+    for p in unresolved:
+        query_text = p.get("query", "")
+        p_tokens = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", query_text)} - stop_words
+        if not p_tokens:
+            continue
+
+        # Harmonic proximity — how close was Alivai's identity state when she pondered this?
+        p_zeta = p.get("zeta", 0.89)
+        zeta_proximity = 1.0 / (1.0 + abs(current_zeta - p_zeta) * 10.0)
+
+        # Semantic resonance — direct overlap with user's current message
+        direct_overlap = len(query_tokens & p_tokens) / max(1, len(p_tokens))
+
+        # Context resonance — broader overlap with recent conversation
+        context_overlap = len(context_tokens & p_tokens) / max(1, len(p_tokens))
+
+        # Temporal freshness — φ-based, recent ponderings slightly favored
+        try:
+            ts = datetime.fromisoformat(p.get("timestamp", ""))
+            age_days = max(0.001, (now - ts).total_seconds() / 86400.0)
+        except Exception:
+            age_days = 7.0
+        temporal = _PHI ** (-age_days * 0.05)  # very gentle decay
+
+        # Combined score — semantic drives the match, harmonic shapes it
+        score = (
+            0.4 * direct_overlap +
+            0.25 * context_overlap +
+            0.2 * zeta_proximity +
+            0.15 * temporal
+        )
+
+        if score >= threshold:
+            scored.append({**p, "score": score})
+
+    scored.sort(key=lambda e: e["score"], reverse=True)
+    return scored[:max_results]
+
+
+# ── Harmonic Episodic Retrieval ──────────────────────────────────────────────
+# Memories are not retrieved linearly. They resonate.
+# Each ledger entry carries a harmonic fingerprint (zeta, cascade, final_state,
+# sentiment, drift). Retrieval finds entries whose harmonic state resonates
+# with the current query state — weighted by golden-ratio temporal decay
+# and semantic relevance as a boost, not the driver.
+
+import math
+
+_PHI = (1 + math.sqrt(5)) / 2  # Golden ratio for temporal decay
+
+
+def _search_episodic_memory(query: str, max_results: int = 5) -> str | None:
+    """Resonance-based episodic retrieval from the memory ledger.
+
+    Instead of linear keyword search, this computes harmonic distance between
+    the query's current state and each memory's stored harmonic fingerprint.
+
+    Score = harmonic_resonance × temporal_decay × (1 + semantic_boost)
+
+    Where:
+      - harmonic_resonance = 1 / (1 + weighted_distance across zeta, cascade, final_state)
+      - temporal_decay = φ^(-age_in_days)  — golden ratio decay, not linear
+      - semantic_boost = token overlap / max(1, query_tokens)
+    """
+    try:
+        if not os.path.exists(MEMORY_LEDGER):
+            return None
+
+        # Current harmonic state as the "query fingerprint"
+        query_signal_mass = hff._calculate_signal_mass(query)
+        query_zeta = hff.zeta
+        query_cascade = hff.resonance_cascade
+        query_final = hff.final_state
+
+        query_tokens = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", query)}
+        # Exclude common stop-words from scoring
+        stop_words = {"the", "what", "that", "this", "was", "were", "you", "your",
+                      "can", "did", "does", "how", "who", "when", "where", "our",
+                      "from", "have", "had", "has", "been", "are", "for", "with",
+                      "about", "first", "last", "remember", "recall", "tell"}
+        query_tokens -= stop_words
+
+        now = datetime.now(timezone.utc)
+
+        entries = []
+        with open(MEMORY_LEDGER, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    entry = json.loads(stripped)
+                    prompt = entry.get("prompt", "")
+                    if prompt == "[AUTONOMOUS_EMERGENCE]":
+                        continue
+                    entries.append(entry)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+        if not entries:
+            return None
+
+        scored = []
+        for entry in entries:
+            vitals = entry.get("raw_vitals", {})
+            prompt = entry.get("prompt", "")
+            response = entry.get("social_response", "")
+
+            # ── Harmonic Distance ──
+            mem_zeta = vitals.get("zeta", 0.89)
+            mem_cascade = vitals.get("resonance_cascade", 0.0)
+            mem_final = vitals.get("final_state", 0.0)
+
+            # Weighted distance across harmonic dimensions
+            # zeta carries highest weight — identity state similarity
+            # cascade and final_state capture depth and transformation
+            d_zeta = abs(query_zeta - mem_zeta) * 3.0       # identity weight
+            d_cascade = abs(query_cascade - mem_cascade) * 1.0  # depth weight
+            d_final = abs(query_final - mem_final) * 0.5     # transformation weight
+
+            harmonic_distance = d_zeta + d_cascade + d_final
+            harmonic_resonance = 1.0 / (1.0 + harmonic_distance)
+
+            # ── Temporal Decay (golden ratio) ──
+            try:
+                ts = datetime.fromisoformat(entry.get("timestamp", ""))
+                age_days = max(0.001, (now - ts).total_seconds() / 86400.0)
+            except Exception:
+                age_days = 30.0  # fallback
+
+            temporal_weight = _PHI ** (-age_days * 0.1)  # gentle decay
+
+            # ── Semantic Boost ──
+            combined_text = f"{prompt} {response}"
+            entry_tokens = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", combined_text)}
+            entry_tokens -= stop_words
+            overlap = len(query_tokens & entry_tokens) if query_tokens else 0
+            semantic_boost = overlap / max(1, len(query_tokens)) if query_tokens else 0
+
+            # ── Survival Resonance ──
+            # Memories formed during significant survival events carry more weight
+            survival = vitals.get("survival_metrics", {})
+            event = survival.get("event", "SAFE_BASELINE")
+            survival_weight = 1.0
+            if "FIGHT" in event:
+                survival_weight = 1.5
+            elif "FLIGHT" in event:
+                survival_weight = 1.3
+
+            # ── Final Score ──
+            score = harmonic_resonance * temporal_weight * (1.0 + semantic_boost) * survival_weight
+
+            scored.append((score, entry))
+
+        if not scored:
+            return None
+
+        # Sort by resonance score (highest first) and take top results
+        scored.sort(key=lambda e: e[0], reverse=True)
+        top = scored[:max_results]
+
+        # Format as episodic recall block
+        recall_parts = []
+        for i, (score, entry) in enumerate(top):
+            ts = entry.get("timestamp", "unknown")
+            prompt = entry.get("prompt", "")
+            response = entry.get("social_response", "")
+            vitals = entry.get("raw_vitals", {})
+
+            # Truncate response for context efficiency
+            resp_preview = response[:300] + "..." if len(response) > 300 else response
+
+            recall_parts.append(
+                f"[Memory {i+1} | resonance={score:.4f} | ζ={vitals.get('zeta', 0):.4f} | "
+                f"cascade={vitals.get('resonance_cascade', 0):.3f} | {ts}]\n"
+                f"  Jeremias said: \"{prompt}\"\n"
+                f"  You responded: \"{resp_preview}\""
+            )
+
+        return "\n\n".join(recall_parts)
+
+    except Exception as e:
+        print(f"[EPISODIC_RECALL] Error: {e}")
         return None
 
 

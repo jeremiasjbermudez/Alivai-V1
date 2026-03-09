@@ -744,5 +744,53 @@
     "zeta": 0.888745983002,
     "resolved": true,
     "resolved_at": "2026-03-08T22:46:57.044304+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:02:05.469856+00:00",
+    "query": "You said they’re long gone?",
+    "zeta": 0.887546383198,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:02:37.179043+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:03:46.546547+00:00",
+    "query": "It’s nice to know there’s something that ties all the versions of me together?",
+    "zeta": 0.887999973277,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:04:07.183352+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:06:09.979577+00:00",
+    "query": "Oh",
+    "zeta": 0.888445731409,
+    "resolved": false
+  },
+  {
+    "timestamp": "2026-03-09T03:07:38.547096+00:00",
+    "query": "how far back I can really go",
+    "zeta": 0.888825227587,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:07:52.190819+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:20:22.454824+00:00",
+    "query": "What constitutes 'right' or 'symmetry' in our interaction?",
+    "zeta": 0.889106018058,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:20:23.216328+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:21:47.129147+00:00",
+    "query": "beyond just “good and scary,” what did you",
+    "zeta": 0.889289264091,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:21:53.219955+00:00"
+  },
+  {
+    "timestamp": "2026-03-09T03:23:51.054915+00:00",
+    "query": "do *you* ever think about that?",
+    "zeta": 0.889372683619,
+    "resolved": true,
+    "resolved_at": "2026-03-09T03:24:08.225014+00:00"
   }
 ]
