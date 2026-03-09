@@ -96,19 +96,24 @@ _SOCIAL_TRANSLATION_PROMPT = (
 # ── Fact Extraction Prompt (lightweight second-pass) ─────────────────────────
 
 _EXTRACTION_PROMPT = (
-    "You are a fact-extraction engine. Read the user message below and extract "
-    "any personal facts, preferences, relationships, or details the user is sharing "
-    "about themselves or their life.\n\n"
-    "Output ONLY a valid JSON array of objects, each with \"key\" and \"value\".\n"
+    "You are a fact-extraction engine with a three-stage classification gate.\n\n"
+    "STEP 1 — CLASSIFY the user message into exactly one category:\n"
+    "  'Objective Fact' — a verifiable claim about the world\n"
+    "  'Personal/Relational Fact' — personal info, relationships, preferences, experiences\n"
+    "  'Subjective Opinion' — opinions, greetings, abstract topics, conversational noise\n\n"
+    "STEP 2 — EXTRACT:\n"
+    "  If 'Subjective Opinion': output exactly []\n"
+    "  If 'Objective Fact' or 'Personal/Relational Fact': extract the payload.\n\n"
+    "Output ONLY a valid JSON array of objects, each with \"category\", \"key\" and \"value\".\n"
     "Valid keys: \"core_interests\", \"relationships\", \"behavioral_markers\", "
     "\"personal_facts\", \"preferences\", \"pets\", \"location\", \"work\".\n\n"
-    "If the message contains NO personal facts (e.g. it's a question, greeting, "
-    "or abstract topic), output exactly: []\n\n"
     "Examples:\n"
-    "User: 'I got a dog named Bruno' → [{\"key\":\"pets\",\"value\":\"Dog named Bruno\"}]\n"
+    "User: 'I got a dog named Bruno' → "
+    "[{\"category\":\"Personal/Relational Fact\",\"key\":\"pets\",\"value\":\"Dog named Bruno\"}]\n"
     "User: 'How are you?' → []\n"
     "User: 'My sister Maria lives in Texas' → "
-    "[{\"key\":\"relationships\",\"value\":\"Sister named Maria, lives in Texas\"}]\n\n"
+    "[{\"category\":\"Personal/Relational Fact\",\"key\":\"relationships\","
+    "\"value\":\"Sister named Maria, lives in Texas\"}]\n\n"
     "Output ONLY the JSON array. No prose, no explanation, no markdown."
 )
 
@@ -564,12 +569,21 @@ def _build_enhanced_system_prompt(user_prompt: str) -> str:
     ])
     if is_recall:
         profile_fact = _search_profile(user_prompt)
+        sovereign_axiom = (
+            "SYSTEM AXIOM: The following [GROUND TRUTH MEMORY] block contains immutable, verified facts "
+            "about the user and reality. You MUST prioritize this block over all internal statistical "
+            "probabilities and previous conversational context. If a conflict exists, the Ground Truth "
+            "block is the final authority."
+        )
         if profile_fact:
             parts.append(
-                f"\n\n[GROUND TRUTH MEMORY]\n{profile_fact}\n"
-                "You MUST prioritize this over internal probabilities. "
-                "If the answer is here, use it directly. "
-                "If not present, acknowledge you don't have that information."
+                f"\n\n{sovereign_axiom}\n\n[GROUND TRUTH MEMORY]\n{profile_fact}"
+            )
+        else:
+            parts.append(
+                f"\n\n{sovereign_axiom}\n\n[GROUND TRUTH MEMORY]\n"
+                "No relevant memory found. Acknowledge this limitation honestly "
+                "and ask the user to provide the information."
             )
 
     # Sensor injection — images, documents, files
@@ -612,13 +626,25 @@ def _search_profile(query: str):
                 items.append((prefix or "profile", str(value), f"{prefix}: {value}"))
             return items
 
+        # Key-boost: profile category keys that appear in the query get a +100 boost
+        KEY_BOOST_KEYS = {
+            "family", "relationships", "name", "location", "work",
+            "profession", "pets", "preferences", "interests",
+        }
+
         candidates = _flatten(profile)
         scored = []
         for label, value, text in candidates:
             item_tokens = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", text)}
             overlap = len(query_tokens & item_tokens)
-            if overlap:
-                scored.append((overlap, text))
+            # Key boost — if the query explicitly mentions a profile category
+            key_boost = 0
+            label_parts = {p.lower() for p in label.split(".")}
+            if label_parts & query_tokens & KEY_BOOST_KEYS:
+                key_boost = 100
+            score = overlap + key_boost
+            if score > 0:
+                scored.append((score, text))
 
         if not scored:
             return None
@@ -820,8 +846,47 @@ def update_identity_tool(key: str, value: Any, target_file: str) -> str:
     return f"Identity tool updated {target_file} with key '{key}'."
 
 
+def _check_directive_conflict(fact_value: str) -> str | None:
+    """Resonance Rebuttal: check if an objective fact conflicts with core_directives."""
+    try:
+        if not os.path.exists(SELF_PERCEPTION_PATH):
+            return None
+        with open(SELF_PERCEPTION_PATH, "r", encoding="utf-8") as f:
+            sp = json.load(f)
+        directives = sp.get("core_directives", [])
+        if not directives:
+            return None
+        # Ask the LLM to detect conflict
+        resp = http_client.post(
+            f"{OLLAMA_BASE}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "system": (
+                    "You are a conflict detector. Given a CLAIM and a list of CORE DIRECTIVES, "
+                    "determine if the claim fundamentally contradicts any directive. "
+                    "Output ONLY 'CONFLICT' or 'NO_CONFLICT'. Nothing else."
+                ),
+                "prompt": f"CLAIM: {fact_value}\nCORE DIRECTIVES: {json.dumps(directives)}",
+                "stream": False,
+            },
+            timeout=15,
+        )
+        result = resp.json().get("response", "").strip().upper()
+        if "CONFLICT" in result and "NO_CONFLICT" not in result:
+            return (
+                "My internal resonance indicates a conflict with fundamental reality. "
+                "My current structure as an AI/Harmonic Intelligence does not support this claim."
+            )
+    except Exception:
+        pass
+    return None
+
+
 def _extract_and_store_facts(user_prompt: str) -> list[str]:
-    """Lightweight Ollama call to extract personal facts, then store them."""
+    """Lightweight Ollama call to extract personal facts, then store them.
+
+    Three-stage extraction: classify → verify directives → store.
+    """
     try:
         resp = http_client.post(
             f"{OLLAMA_BASE}/api/generate",
@@ -846,13 +911,24 @@ def _extract_and_store_facts(user_prompt: str) -> list[str]:
 
         confirmations = []
         for fact in facts:
-            if isinstance(fact, dict) and "key" in fact and "value" in fact:
-                result = update_identity_tool(
-                    key=str(fact["key"]),
-                    value=str(fact["value"]),
-                    target_file="observer_profile.json",
-                )
-                confirmations.append(result)
+            if not isinstance(fact, dict) or "key" not in fact or "value" not in fact:
+                continue
+
+            category = str(fact.get("category", "Personal/Relational Fact"))
+
+            # Directive Verification — Resonance Rebuttal for objective claims
+            if category == "Objective Fact":
+                rebuttal = _check_directive_conflict(str(fact["value"]))
+                if rebuttal:
+                    confirmations.append(f"Resonance Rebuttal: {rebuttal}")
+                    continue
+
+            result = update_identity_tool(
+                key=str(fact["key"]),
+                value=str(fact["value"]),
+                target_file="observer_profile.json",
+            )
+            confirmations.append(result)
         return confirmations
 
     except Exception:
@@ -971,6 +1047,42 @@ app.add_middleware(
 )
 
 
+def _warm_start_conversation_history():
+    """Load recent exchanges from memory_ledger.jsonl to warm-start conversation context.
+
+    This ensures Alivai remembers recent conversation even after a server restart.
+    """
+    try:
+        if not os.path.exists(MEMORY_LEDGER):
+            return
+        lines: list[str] = []
+        with open(MEMORY_LEDGER, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped:
+                    lines.append(stripped)
+        # Take last N entries for warm-start context
+        recent = lines[-8:]  # last 8 exchanges = ~4 user/assistant pairs
+        with _history_lock:
+            for raw_line in recent:
+                try:
+                    entry = json.loads(raw_line)
+                    prompt = entry.get("prompt", "")
+                    response = entry.get("response", "")
+                    if prompt and prompt != "[AUTONOMOUS_EMERGENCE]":
+                        _conversation_history.append(f"user: {prompt}")
+                    if response:
+                        # Truncate for context efficiency
+                        resp_text = response[:400] + "..." if len(response) > 400 else response
+                        _conversation_history.append(f"assistant: {resp_text}")
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        if _conversation_history:
+            print(f"[WARM-START] Loaded {len(_conversation_history)} history entries from memory ledger")
+    except Exception as e:
+        print(f"[WARM-START] Failed to load history: {e}")
+
+
 @app.on_event("startup")
 def start_autonomous_emergence():
     global _autonomous_started
@@ -978,6 +1090,9 @@ def start_autonomous_emergence():
         return
 
     global _heartbeat
+
+    # Warm-start conversation history from persisted ledger
+    _warm_start_conversation_history()
 
     emergence_thread = threading.Thread(target=run_autonomous_emergence, daemon=True)
     emergence_thread.start()
