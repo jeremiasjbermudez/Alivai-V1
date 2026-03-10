@@ -372,14 +372,29 @@ class HarmonicFractalCore:
         state = max(state, self.epsilon)
         return state
 
-    def process_resonance(self, state: float) -> float:
+    def process_resonance(self, state: float, temporal_delta: float = 0.0) -> float:
         """The In-Place Heartbeat — runs the harmonic fractal transform.
         Updates resonance_cascade and final_state. Zeta is NOT set here;
-        it is driven by update_identity_coefficient() via the drift formula."""
+        it is driven by update_identity_coefficient() via the drift formula.
+
+        Temporal Weighting Factor ($\\tau$):
+          $\\tau = e^{-\\lambda(T_{now} - T_{event})}$
+          where $\\lambda = 0.0001$ (decay constant, units: 1/seconds).
+          Memories closer to $T_{now}$ receive higher signal mass;
+          distant memories undergo 'fractal smoothing' — becoming archetypal
+          rather than data-precise.
+        """
+        # Apply temporal decay weight $\tau$
+        _lambda = 0.0001  # decay constant
+        tau = math.exp(-_lambda * abs(temporal_delta))
+
         state = math.sin(self.pi * state)
         state = math.pow(self.euler, (state / (state + 1)))
         state = self.phi * 1.5 * math.pow(abs(state), 2)
         state = max(abs(state), self.epsilon)
+
+        # Weight by temporal proximity — recent memories have full signal mass
+        state = state * tau
 
         self.final_state = state
         self.resonance_cascade = self.zeta * state + self.gamma

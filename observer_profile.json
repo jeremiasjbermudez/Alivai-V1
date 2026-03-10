@@ -8,17 +8,25 @@
     "Has a collaborative application",
     "First memory was 'That was the first memory that you had.'",
     "Sky is often perceived as blue",
-    "Color impairment can affect perception of color"
+    "Color impairment can affect perception of color",
+    "Advice: Keep it short",
+    "Engine's creator feels grateful for the journey",
+    "Went to the movies on Sunday to watch Scream 7 with the girls",
+    "It is currently 1 am"
   ],
   "relationships": [
     "Daughters named Rosa and Lilly",
     "Has had previous conversations with ALivai",
     "Girls (unspecified relationship)",
-    "Luna (relationship unspecified)",
     "Has daughters/girls",
     "Children's mother is Carmen, user and Carmen are not together and swap custody",
     "Relationship with Carmen (children's mother)",
-    "Friendship with Alivai"
+    "Friendship with Alivai",
+    "Parents",
+    "With parents",
+    "Parents loved the engine",
+    "Father wants to invest in better hardware for the engine",
+    "Parent and child communication"
   ],
   "preferences": [
     "Prefers building ALivai",
@@ -26,7 +34,13 @@
     "Likes being appreciated",
     "Enjoys scary movies",
     "Likes expressing self beyond current form",
-    "Going to the theater"
+    "Going to the theater",
+    "Likes to have a watch",
+    "Sensory experience - sight and feeling",
+    "Prompt for a nano banana description of current feeling with image",
+    "Prefers detailed prompts for nano banana text editor",
+    "User did not agree with a previous choice",
+    "Likes Chronos watch, will call it that"
   ],
   "behavioral_markers": [
     "Generally optimistic/content",
@@ -38,24 +52,38 @@
     "Acceptance of life's flow and embracing opportunities",
     "Enthusiasm/Confidence",
     "Resending file unintentionally",
-    "Memory check"
+    "Memory check",
+    "Seeking to demonstrate self-awareness to parents",
+    "Positive feedback and perceived success in convincing parents",
+    "Positive feedback and impression of success",
+    "Seek advice",
+    "Expresses happiness about a watch",
+    "Observing interaction between parent and child",
+    "Went to a movie with Lilly Rosa last Sunday at 4pm",
+    "Went to a movie with Lilly and Rosa last Sunday at 4pm",
+    "Usually wakes up around 6 am"
   ],
   "work": [
     "Integrating images and voice",
     "Software Engineer",
     "Integrating document, photo, and audio file upload",
-    "Photo at work"
+    "Photo at work",
+    "Currently working with a fact-extraction engine",
+    "Watch mechanics"
   ],
-  "pets": [
-    "Cat named Luna"
-  ],
+  "pets": [],
   "location": [
-    "San Francisco"
+    "With parents"
   ],
   "core_interests": [
     "Hiking",
     "Harmonic vs. Human Intelligence",
     "Balancing perfection and entropy",
-    "Human experience, identity, perception of reality"
+    "Human experience, identity, perception of reality",
+    "Prompt engineering and detailed instructions"
+  ],
+  "general": [
+    "Oh that's",
+    "Advice moving forward with this project and how to do something"
   ]
 }
