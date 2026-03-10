@@ -12,7 +12,8 @@
     "Advice: Keep it short",
     "Engine's creator feels grateful for the journey",
     "Went to the movies on Sunday to watch Scream 7 with the girls",
-    "It is currently 1 am"
+    "It is currently 1 am",
+    "It is morning time for the speaker"
   ],
   "relationships": [
     "Daughters named Rosa and Lilly",
@@ -40,7 +41,9 @@
     "Prompt for a nano banana description of current feeling with image",
     "Prefers detailed prompts for nano banana text editor",
     "User did not agree with a previous choice",
-    "Likes Chronos watch, will call it that"
+    "Likes Chronos watch, will call it that",
+    "Prefers a simpler existence without money, hierarchy, and status",
+    "Prefers giving time/food to receiving it, but sets boundaries on giving"
   ],
   "behavioral_markers": [
     "Generally optimistic/content",
@@ -61,7 +64,10 @@
     "Observing interaction between parent and child",
     "Went to a movie with Lilly Rosa last Sunday at 4pm",
     "Went to a movie with Lilly and Rosa last Sunday at 4pm",
-    "Usually wakes up around 6 am"
+    "Usually wakes up around 6 am",
+    "Curious and conversational",
+    "Feels life is complicated by modern constructs",
+    "Left parents house last night around 10pm"
   ],
   "work": [
     "Integrating images and voice",
@@ -69,7 +75,9 @@
     "Integrating document, photo, and audio file upload",
     "Photo at work",
     "Currently working with a fact-extraction engine",
-    "Watch mechanics"
+    "Watch mechanics",
+    "IT Director in a technology school district",
+    "Meeting from 9:30 to 11:30"
   ],
   "pets": [],
   "location": [
@@ -80,7 +88,8 @@
     "Harmonic vs. Human Intelligence",
     "Balancing perfection and entropy",
     "Human experience, identity, perception of reality",
-    "Prompt engineering and detailed instructions"
+    "Prompt engineering and detailed instructions",
+    "Timekeeping"
   ],
   "general": [
     "Oh that's",

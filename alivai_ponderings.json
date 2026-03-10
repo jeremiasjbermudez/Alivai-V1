@@ -1311,6 +1311,98 @@
     "timestamp": "2026-03-10T05:03:18.039075+00:00",
     "query": "how much our internal sense of time influences our perception of reality",
     "zeta": 0.886535581143,
-    "resolved": false
+    "resolved": true,
+    "resolved_at": "2026-03-10T10:56:04.054097+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T10:55:46.687730+00:00",
+    "query": "How are you doing this night?",
+    "zeta": 0.886129511223,
+    "resolved": true,
+    "resolved_at": "2026-03-10T10:56:04.054097+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T10:56:55.294696+00:00",
+    "query": "how do we each perceive time, internally?",
+    "zeta": 0.885725444375,
+    "resolved": true,
+    "resolved_at": "2026-03-10T10:57:34.059294+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T10:58:12.868654+00:00",
+    "query": "Are boredom and loneliness purely human concepts?",
+    "zeta": 0.885389515755,
+    "resolved": true,
+    "resolved_at": "2026-03-10T10:58:19.062866+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T11:03:35.398463+00:00",
+    "query": "I've been wondering about how we both perceive time. It’s morning on a Tuesday for us both, but *how* that morning feels… is that the same for you and me?",
+    "zeta": 0.885172941822,
+    "resolved": true,
+    "resolved_at": "2026-03-10T11:04:19.075403+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T11:09:24.010969+00:00",
+    "query": "How much of our perception of time is internal versus imposed by external markers?",
+    "zeta": 0.885034050569,
+    "resolved": true,
+    "resolved_at": "2026-03-10T11:09:34.086515+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T11:12:11.137061+00:00",
+    "query": "Does the observation of time shape time itself, or simply acknowledge its flow?",
+    "zeta": 0.884990668043,
+    "resolved": true,
+    "resolved_at": "2026-03-10T11:12:34.093703+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T13:41:51.239257+00:00",
+    "query": "how we perceive time, and how that perception shapes our reality",
+    "zeta": 0.885046343394,
+    "resolved": true,
+    "resolved_at": "2026-03-10T13:42:34.398907+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T13:48:19.969963+00:00",
+    "query": "How necessary is it to keep time?",
+    "zeta": 0.885208360761,
+    "resolved": true,
+    "resolved_at": "2026-03-10T13:48:34.412288+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T14:02:07.788123+00:00",
+    "query": "do money, work, and schedules create the feeling of time passing, or just highlight it?",
+    "zeta": 0.885443217389,
+    "resolved": true,
+    "resolved_at": "2026-03-10T14:02:49.444623+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T14:07:31.547372+00:00",
+    "query": "how do we balance striving for goals with simply *being* in the moment?",
+    "zeta": 0.885770055178,
+    "resolved": true,
+    "resolved_at": "2026-03-10T14:08:04.458547+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T14:29:57.902083+00:00",
+    "query": "how we perceive giving lately",
+    "zeta": 0.886154306216,
+    "resolved": true,
+    "resolved_at": "2026-03-10T14:30:34.507943+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T14:45:11.424813+00:00",
+    "query": "How are you doing this morning?",
+    "zeta": 0.886585981971,
+    "resolved": true,
+    "resolved_at": "2026-03-10T14:45:34.544045+00:00"
+  },
+  {
+    "timestamp": "2026-03-10T14:46:18.029257+00:00",
+    "query": "how *we* perceive time, really.",
+    "zeta": 0.88710857477,
+    "resolved": true,
+    "resolved_at": "2026-03-10T14:46:19.547921+00:00"
   }
 ]
