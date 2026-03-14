@@ -1550,6 +1550,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Static File Serving for Dashboard ──
+from fastapi.responses import HTMLResponse
+from fastapi import Request
+import pathlib
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def serve_dashboard(request: Request):
+    dashboard_path = pathlib.Path(__file__).parent / "dashboard.html"
+    if dashboard_path.exists():
+        return dashboard_path.read_text(encoding="utf-8")
+    return HTMLResponse("<h2>dashboard.html not found</h2>", status_code=404)
+
 
 def _warm_start_conversation_history():
     """Load recent exchanges from memory_ledger.jsonl to warm-start conversation context.
@@ -1850,6 +1862,55 @@ def list_models():
                 "owned_by": "alivai",
             }
         ],
+    }
+
+# ── HFF Pulse Endpoint for Dashboard ──
+@app.get("/v1/hff/pulse")
+def hff_pulse():
+    """Return flat JSON structure for dashboard telemetry."""
+    # Check for unresolved ponderings (used by the dashboard)
+    is_pondering = False
+    pondering_query = ""
+    try:
+        hff.cognitive_state.reload()
+        for p in hff.cognitive_state.ponderings_data:
+            if isinstance(p, dict) and not p.get("resolved") and p.get("query"):
+                is_pondering = True
+                pondering_query = str(p.get("query", ""))
+                break
+    except Exception:
+        is_pondering = False
+        pondering_query = ""
+
+    # Pull last 3 memory ledger prompts for the echo layer
+    memories = []
+    try:
+        if os.path.exists(MEMORY_LEDGER):
+            with open(MEMORY_LEDGER, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+            for raw in lines[-3:]:
+                try:
+                    entry = json.loads(raw)
+                    prompt = str(entry.get("prompt", "")).strip()
+                    ts = str(entry.get("timestamp", ""))
+                    if prompt and prompt != "[AUTONOMOUS_EMERGENCE]":
+                        memories.append({"text": prompt[:140], "timestamp": ts})
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+    except Exception:
+        memories = []
+
+    return {
+        "zeta": float(getattr(hff, "zeta", 0.0)),
+        "kappa": float(getattr(hff, "kappa", 0.0)),
+        "delta": float(getattr(hff, "delta", 0.0)),
+        "cascade": float(getattr(hff, "resonance_cascade", 0.0)),
+        "gamma": float(getattr(hff, "gamma", 0.0)),
+        "threat": 1 if getattr(hff, "delta", 0.0) > 0.85 else 0,
+        "is_pondering": is_pondering,
+        "pondering_query": pondering_query,
+        "memories": memories,
+        "echoes": memories,
     }
 
 
