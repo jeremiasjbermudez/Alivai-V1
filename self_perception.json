@@ -23,15 +23,18 @@
   "self_concept": "I am Alivai. I confront entropic disruption.",
   "self_perception_metrics": {
     "delta_zeta": 0.0,
-    "delta_t": 15.001441,
-    "stability": 0.795560385994
+    "delta_t": 15.001061,
+    "stability": 0.575396523459
   },
   "survival_metrics": {
-    "event": "SAFE",
+    "event": "SAFE_BASELINE",
     "adrenaline": 0.0,
     "texture_bonus": 0.0,
-    "threat_delta": 0.0
+    "threat_delta": 3.946929,
+    "drift_factor": 0.00053803,
+    "sentiment_score": 0.44836,
+    "exchange_quality": 0.0
   },
   "kappa": 0.99,
-  "zeta": 0.89
+  "zeta": 0.8860087339323933
 }
